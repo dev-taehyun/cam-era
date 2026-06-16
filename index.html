@@ -82,10 +82,10 @@
       pointer-events: none;
     }
 
-    /* ── ⚡ 배율 표시기: 화면 중앙 하단 배치 ── */
+    /* ── 배율 표시기 (화면 중앙 하단 유지) ── */
     #zoom-indicator {
       position: fixed;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 40px); /* 화면 맨 하단 중앙 여백 */
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
       left: 50%;
       transform: translateX(-50%);
       background: rgba(0,0,0,0.52);
@@ -101,27 +101,45 @@
     }
     #zoom-indicator.visible { opacity: 1; }
 
-    /* ── ⚡ 아이패드 카메라 레이아웃: 우측 사이드 정렬 바 ── */
+    /* ── 우측 사이드 정렬 바 ── */
     #bottom-bar {
       position: fixed; 
       top: 0; right: 0; bottom: 0;
-      width: 120px; /* 우측 사이드바 영역 확정 */
+      width: 140px;
       padding: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-right, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px) 0;
       display: none;
       flex-direction: column; 
       align-items: center; 
-      justify-content: center; /* 세로 중앙 정렬 */
+      justify-content: center; 
       z-index: 30;
       background: linear-gradient(to left, rgba(0,0,0,0.4) 0%, transparent 100%);
       pointer-events: none;
     }
 
-    /* ── ⚡ 저장 토글: 셔터 컴포넌트 바로 위 그룹 배치 ── */
+    /* ── 우측 메인 컨트롤 세로 배열 구조 ── */
+    #control-row {
+      display: flex;
+      flex-direction: column; 
+      align-items: center; 
+      gap: 28px; /* 각 버튼 그룹(전환, 셔터세트, 갤러리) 사이의 간격 */
+      pointer-events: none;
+    }
+
+    /* ⚡ 셔터 버튼과 사진 저장 토글을 한 몸으로 묶는 내부 래퍼 컨테이너 */
+    .shutter-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      /* ⚡ 기존 하단 바 레이아웃 시절의 토글-셔터 사이 수직 간격(margin-bottom: 10px)을 완벽히 재현 */
+      gap: 10px; 
+      pointer-events: none;
+    }
+
+    /* ⚡ 사진 저장 문구와 토글 버튼 세트 */
     #save-row {
       display: flex; 
       align-items: center; 
-      gap: 0.35em; /* ⚡ 0.35em 간격 정밀 반영 */
-      margin-bottom: 28px; /* 셔터 단추와의 수직 거리 확보 */
+      gap: 0.35em; /* 요구하신 0.35em 정밀 반영 */
       pointer-events: all;
     }
     #save-label {
@@ -150,37 +168,13 @@
     }
     #save-toggle input:checked ~ .t-thumb { transform: translateX(18px); }
 
-    /* ── 컨트롤 버튼 정렬 컴포넌트 (세로 정렬) ── */
-    #control-row {
-      display: flex;
-      flex-direction: column; /* 아이패드 정석: 세로 배열 */
-      align-items: center; 
-      gap: 28px; /* 각 버튼 간 상하 격차 공백 */
-      pointer-events: none;
-    }
-
-    /* 카메라 전환 (위쪽 배치) */
-    #flip-btn {
-      width: 52px; height: 52px; border-radius: 50%;
-      background: rgba(255,255,255,0.12);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border: none; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      pointer-events: all; flex-shrink: 0;
-      order: 1; /* 순서 강제 정의 */
-      transition: background 0.15s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    #flip-btn:active { background: rgba(255,255,255,0.22); }
-    #flip-btn.spinning { transform: rotate(180deg); }
-
-    /* 메인 셔터 버튼 (정중앙 배치) */
+    /* 메인 셔터 버튼 */
     #shutter {
       width: 76px; height: 76px; border-radius: 50%;
       background: transparent;
       border: 3.5px solid rgba(255,255,255,0.9);
       cursor: pointer; position: relative; flex-shrink: 0;
       pointer-events: all;
-      order: 2;
       transition: transform 0.1s ease;
     }
     #shutter::after {
@@ -191,6 +185,19 @@
     #shutter:active { transform: scale(0.91); }
     #shutter:active::after { transform: scale(0.86); opacity: 0.8; }
 
+    /* 카메라 전환 (위쪽 배치) */
+    #flip-btn {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: all; flex-shrink: 0;
+      transition: background 0.15s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #flip-btn:active { background: rgba(255,255,255,0.22); }
+    #flip-btn.spinning { transform: rotate(180deg); }
+
     /* 갤러리 썸네일 슬롯 (아래쪽 배치) */
     #thumbnail-slot {
       width: 52px; height: 52px; border-radius: 10px;
@@ -198,7 +205,6 @@
       overflow: hidden; background: rgba(255,255,255,0.06);
       cursor: pointer; pointer-events: all;
       flex-shrink: 0;
-      order: 3;
       transition: opacity 0.15s;
     }
     #thumbnail-slot:active { opacity: 0.7; }
@@ -281,14 +287,6 @@
   <div id="zoom-indicator">1.0×</div>
 
   <div id="bottom-bar">
-    <div id="save-row">
-      <span id="save-label">사진 저장</span>
-      <label id="save-toggle" for="save-cb">
-        <input type="checkbox" id="save-cb">
-        <span class="t-track"></span>
-        <span class="t-thumb"></span>
-      </label>
-    </div>
     <div id="control-row">
       <button id="flip-btn" aria-label="카메라 전환">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -297,7 +295,19 @@
           <path d="M3.51 15a9 9 0 0 0 14.85 3.36L23 14"/>
         </svg>
       </button>
-      <button id="shutter" aria-label="촬영"></button>
+
+      <div class="shutter-group">
+        <div id="save-row">
+          <span id="save-label">사진 저장</span>
+          <label id="save-toggle" for="save-cb">
+            <input type="checkbox" id="save-cb">
+            <span class="t-track"></span>
+            <span class="t-thumb"></span>
+          </label>
+        </div>
+        <button id="shutter" aria-label="촬영"></button>
+      </div>
+
       <div id="thumbnail-slot"><img id="thumbnail" alt=""></div>
     </div>
   </div>
@@ -548,7 +558,6 @@
 
     function moveSlide(anim = true) {
       swipeContainer.style.transition = anim ? 'transform 0.3s cubic-bezier(0.16,1,0.3,1)' : 'none';
-      // 슬라이드 폭 연산 규격 수정 (아이패드용 세로모드/가로모드 대응 유동적 너비 반영)
       swipeContainer.style.transform  = `translateX(${-currentSlideIndex * window.innerWidth}px)`;
       viewerCounter.textContent = `${currentSlideIndex + 1} / ${photosArray.length}`;
     }
