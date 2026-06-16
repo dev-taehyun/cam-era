@@ -20,6 +20,7 @@
       background: #000;
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      -webkit-tap-highlight-color: transparent;
       touch-action: none; 
     }
 
@@ -223,7 +224,7 @@
       transform: translateX(18px);
     }
 
-    /* ── 임시 갤러리 뷰어 레이아웃 ── */
+    /* ── 최신 풀 사양 임시 갤러리 뷰어 레이아웃 ── */
     #gallery-viewer {
       position: fixed;
       inset: 0;
@@ -403,7 +404,7 @@
     const toastEl       = document.getElementById('toast');
     const errorEl       = document.getElementById('error-msg');
 
-    // 갤러리 내부 전용 변수 파이프라인
+    // 갤러리 파이프라인 요소 바인딩
     const galleryViewer = document.getElementById('gallery-viewer');
     const swipeContainer = document.getElementById('swipe-container');
     const viewerClose   = document.getElementById('viewer-close');
@@ -414,6 +415,7 @@
     let facingMode    = 'environment';
     let toastTimer    = null;
     
+    // 찍은 사진 데이터를 저장할 스택 배열 및 포인터 인덱스
     let photosArray   = []; 
     let currentSlideIndex = 0;
 
@@ -422,7 +424,7 @@
       saveToggleWrap.classList.toggle('active', saveCheckbox.checked);
     });
 
-    // 전체 모바일 뷰 배율 제스처 엉킴 원천 방어 락킹
+    // 뷰포트 확대 간섭 제어 방어코드
     document.addEventListener('touchstart', (e) => {
       if (e.touches.length > 1) e.preventDefault();
     }, { passive: false });
@@ -466,7 +468,7 @@
 
     openBtn.addEventListener('click', () => startCamera('environment'));
 
-    // ── Shutter ───────────────────────────────────────────────
+    // ── Shutter (플래시 없이 셔터 딜레이 제로 즉시 기록) ───────────────────
     shutter.addEventListener('click', () => {
       if (!currentStream) return;
 
@@ -484,7 +486,7 @@
 
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
 
-      // 복원된 데이터 세그먼트 배열 주입
+      // 배열에 촬영 데이터 영구 인젝션
       photosArray.push(dataUrl);
 
       if (saveCheckbox.checked) {
@@ -514,7 +516,7 @@
       startCamera(next);
     });
 
-    // ── 임시 갤러리 모달 내부 구동 및 스와이프 제어 엔진 ──
+    // ── 풀 모션 갤러리 구동 및 가속 제스처 모듈 ──
     document.getElementById('thumbnail-slot').addEventListener('click', () => {
       if (photosArray.length === 0) return;
       
@@ -528,6 +530,7 @@
         swipeContainer.appendChild(slide);
       });
       
+      // 최신 사진을 먼저 띄우도록 마지막 인덱스 셋업
       currentSlideIndex = photosArray.length - 1;
       moveSlidePosition(false);
       galleryViewer.style.display = 'block';
@@ -572,6 +575,7 @@
       const diffX = e.changedTouches[0].clientX - startX;
       const speed = Math.abs(diffX) / (Date.now() - startTime);
 
+      // 관성 스와이프 또는 물리 드래그 트리거 처리
       if ((diffX < -window.innerWidth * 0.35 || speed > 0.4) && currentSlideIndex < photosArray.length - 1) {
         currentSlideIndex++;
       } else if ((diffX > window.innerWidth * 0.35 || speed > 0.4) && currentSlideIndex > 0) {
