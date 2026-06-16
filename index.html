@@ -62,6 +62,7 @@
       color: rgba(255,255,255,0.45); font-size: 14px;
       text-align: center; line-height: 1.55;
       padding: 0 40px; margin-bottom: 36px;
+      white-space: pre-line;
     }
     #open-camera-btn {
       background: #fff; color: #000; border: none;
@@ -351,32 +352,42 @@
       photosArray: [],
       currentSlideIndex: 0,
       toastTimer: null,
-      
-      // Zoom Settings
-      zoomTrack: null,
-      currentZoom: 1.0,
-      zoomMin: 1.0,
-      zoomMax: 1.0,
-      zoomSupported: false,
-      zoomHideTimer: null,
-
-      // Swipe / Pinch Gestures
-      pinchActive: false,
-      pinchStartDist: 0,
-      pinchStartZoom: 1.0,
-      swX: 0,
-      swY: 0, 
-      swT: 0,
-      swLive: false,
       lastTap: 0,
+      
+      // Camera Zoom Settings
+      zoom: {
+        track: null,
+        current: 1.0,
+        min: 1.0,
+        max: 1.0,
+        isSupported: false,
+        hideTimer: null
+      },
 
-      // 갤러리 내부 전용 확대 및 자유 위치 탐색 변수
-      galleryZoom: 1.0,
-      galleryStartZoom: 1.0,
-      panX: 0,
-      panY: 0,
-      startPanX: 0,
-      startPanY: 0
+      // Gestures (Camera Viewfinder)
+      cameraGesture: {
+        isPinchActive: false,
+        startDist: 0,
+        startZoom: 1.0
+      },
+
+      // Gestures (Gallery Common Swipe & Pan)
+      galleryGesture: {
+        swX: 0,
+        swY: 0, 
+        swT: 0,
+        isSwiveLive: false,
+        zoom: 1.0,
+        startZoom: 1.0,
+        panX: 0,
+        panY: 0,
+        startPanX: 0,
+        startPanY: 0,
+        isPinchActive: false,
+        startDist: 0,
+        pinchCenterX: 0,
+        pinchCenterY: 0
+      }
     };
 
     // ── Utility Functions ──
@@ -423,7 +434,9 @@
       }
 
       if (state.currentStream) { 
-        state.currentStream.getTracks().forEach(t => t.stop()); 
+        state.currentStream.getTracks().forEach(t => {
+          try { t.stop(); } catch (_) {}
+        }); 
         state.currentStream = null; 
       }
       
@@ -442,7 +455,7 @@
         
         state.currentStream = stream;
         DOM.viewfinder.srcObject = stream;
-        state.zoomTrack = stream.getVideoTracks()[0];
+        state.zoom.track = stream.getVideoTracks()[0];
         initZoom();
         
         DOM.permScreen.style.display = 'none';
@@ -472,53 +485,53 @@
       }
     }
 
-    // ── Zoom Controls ──
+    // ── Camera Viewfinder Zoom Controls ──
     function initZoom() {
-      state.zoomSupported = false;
-      state.currentZoom = 1.0; 
-      state.zoomMin = 1.0; 
-      state.zoomMax = 1.0;
+      state.zoom.isSupported = false;
+      state.zoom.current = 1.0; 
+      state.zoom.min = 1.0; 
+      state.zoom.max = 1.0;
       
-      if (!state.zoomTrack?.getCapabilities) return;
+      if (!state.zoom.track?.getCapabilities) return;
       
-      const caps = state.zoomTrack.getCapabilities();
+      const caps = state.zoom.track.getCapabilities();
       if (caps.zoom?.min != null && caps.zoom?.max != null) {
-        state.zoomMin = caps.zoom.min;
-        state.zoomMax = caps.zoom.max;
-        state.currentZoom = caps.zoom.min; 
-        state.zoomSupported = true;
+        state.zoom.min = caps.zoom.min;
+        state.zoom.max = caps.zoom.max;
+        state.zoom.current = caps.zoom.min; 
+        state.zoom.isSupported = true;
       }
     }
 
     document.addEventListener('touchstart', e => {
-      if (e.touches.length === 2 && state.zoomSupported && DOM.galleryViewer.style.display !== 'block') {
-        state.pinchActive    = true;
-        state.pinchStartDist = getTouchDist(e.touches);
-        state.pinchStartZoom = state.currentZoom;
+      if (e.touches.length === 2 && state.zoom.isSupported && DOM.galleryViewer.style.display !== 'block') {
+        state.cameraGesture.isPinchActive = true;
+        state.cameraGesture.startDist     = getTouchDist(e.touches);
+        state.cameraGesture.startZoom     = state.zoom.current;
       }
     }, { passive: false });
 
     document.addEventListener('touchmove', e => {
-      if (!state.pinchActive || e.touches.length !== 2) return;
+      if (!state.cameraGesture.isPinchActive || e.touches.length !== 2) return;
       
-      const dist  = getTouchDist(e.touches);
-      const ratio = dist / state.pinchStartDist;
-      const newZoom = Math.max(state.zoomMin, Math.min(state.zoomMax, state.pinchStartZoom * ratio));
+      const dist    = getTouchDist(e.touches);
+      const ratio   = dist / state.cameraGesture.startDist;
+      const newZoom = Math.max(state.zoom.min, Math.min(state.zoom.max, state.cameraGesture.startZoom * ratio));
       
-      if (Math.abs(newZoom - state.currentZoom) >= 0.05) {
-        state.currentZoom = newZoom;
+      if (Math.abs(newZoom - state.zoom.current) >= 0.05) {
+        state.zoom.current = newZoom;
         applyZoom(newZoom);
       }
     }, { passive: false });
 
     document.addEventListener('touchend', e => {
-      if (e.touches.length < 2) state.pinchActive = false;
+      if (e.touches.length < 2) state.cameraGesture.isPinchActive = false;
     }, { passive: true });
 
     async function applyZoom(level) {
-      if (!state.zoomTrack?.applyConstraints) return;
+      if (!state.zoom.track?.applyConstraints) return;
       try { 
-        await state.zoomTrack.applyConstraints({ advanced: [{ zoom: level }] }); 
+        await state.zoom.track.applyConstraints({ advanced: [{ zoom: level }] }); 
       } catch (_) {}
       showZoomLabel(level);
     }
@@ -526,8 +539,8 @@
     function showZoomLabel(level) {
       DOM.zoomIndicator.textContent = `${level.toFixed(1)}×`;
       DOM.zoomIndicator.classList.add('visible');
-      clearTimeout(state.zoomHideTimer);
-      state.zoomHideTimer = setTimeout(() => DOM.zoomIndicator.classList.remove('visible'), 1500);
+      clearTimeout(state.zoom.hideTimer);
+      state.zoom.hideTimer = setTimeout(() => DOM.zoomIndicator.classList.remove('visible'), 1500);
     }
 
     // ── Capture & Shutter ──
@@ -604,13 +617,13 @@
     DOM.viewerHeader.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
     DOM.viewerHeader.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
 
-    DOM.viewerClose.addEventListener('click', (e) => {
+    DOM.viewerClose.addEventListener('click', () => {
       if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
       DOM.galleryViewer.style.display = 'none';
       setTimeout(checkAndResumeCamera, 100);
     });
 
-    DOM.viewerDownload.addEventListener('click', (e) => {
+    DOM.viewerDownload.addEventListener('click', () => {
       if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
       if (state.photosArray[state.currentSlideIndex]) {
         saveImage(state.photosArray[state.currentSlideIndex], true);
@@ -624,9 +637,9 @@
     }
 
     function resetSlideZoom() {
-      state.galleryZoom = 1.0;
-      state.panX = 0;
-      state.panY = 0;
+      state.galleryGesture.zoom = 1.0;
+      state.galleryGesture.panX = 0;
+      state.galleryGesture.panY = 0;
       const imgs = DOM.swipeContainer.querySelectorAll('.swipe-slide img');
       imgs.forEach(img => {
         img.style.transform = 'translate(0px, 0px) scale(1)';
@@ -636,114 +649,112 @@
     function updateCurrentImageTransform() {
       const currentImg = DOM.swipeContainer.children[state.currentSlideIndex]?.querySelector('img');
       if (currentImg) {
-        currentImg.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.galleryZoom})`;
+        currentImg.style.transform = `translate(${state.galleryGesture.panX}px, ${state.galleryGesture.panY}px) scale(${state.galleryGesture.zoom})`;
       }
     }
 
-    let galleryPinchActive = false;
-    let galleryPinchStartDist = 0;
-    let pinchCenterX = 0;
-    let pinchCenterY = 0;
-
-    DOM.galleryViewer.addEventListener('touchstart', e => {
+    // ── Gallery Gesture Core Handlers ──
+    function onGalleryTouchStart(e) {
+      const g = state.galleryGesture;
       if (e.touches.length === 2) {
-        state.swLive = false;
-        galleryPinchActive = true;
-        galleryPinchStartDist = getTouchDist(e.touches);
-        state.galleryStartZoom = state.galleryZoom;
+        g.isSwiveLive = false;
+        g.isPinchActive = true;
+        g.startDist = getTouchDist(e.touches);
+        g.startZoom = g.zoom;
 
         // 두 손가락의 중심 좌표 계산
-        pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        g.pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        g.pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
         
-        state.startPanX = state.panX;
-        state.startPanY = state.panY;
+        g.startPanX = g.panX;
+        g.startPanY = g.panY;
       } else if (e.touches.length === 1) { 
-        state.swX = e.touches[0].clientX; 
-        state.swY = e.touches[0].clientY; 
-        state.startPanX = state.panX;
-        state.startPanY = state.panY;
-        state.swT = Date.now(); 
-        state.swLive = true; 
+        g.swX = e.touches[0].clientX; 
+        g.swY = e.touches[0].clientY; 
+        g.startPanX = g.panX;
+        g.startPanY = g.panY;
+        g.swT = Date.now(); 
+        g.isSwiveLive = true; 
         DOM.swipeContainer.style.transition = 'none'; 
       }
-    }, { passive: true });
+    }
 
-    DOM.galleryViewer.addEventListener('touchmove', e => {
-      if (galleryPinchActive && e.touches.length === 2) {
+    function onGalleryTouchMove(e) {
+      const g = state.galleryGesture;
+      if (g.isPinchActive && e.touches.length === 2) {
         const dist = getTouchDist(e.touches);
-        const ratio = dist / galleryPinchStartDist;
-        const nextZoom = Math.max(1.0, Math.min(4.0, state.galleryStartZoom * ratio));
+        const ratio = dist / g.startDist;
+        const nextZoom = Math.max(1.0, Math.min(4.0, g.startZoom * ratio));
         
-        if (nextZoom !== state.galleryZoom) {
-          // 화면 중심 좌표 정의
+        if (nextZoom !== g.zoom) {
           const viewWidth = window.innerWidth;
           const viewHeight = window.innerHeight;
           const originX = viewWidth / 2;
           const originY = viewHeight / 2;
 
           // 손가락 위치 기준 중심점을 타겟으로 잡고 배율 보정치 계산
-          const targetX = pinchCenterX - originX;
-          const targetY = pinchCenterY - originY;
+          const targetX = g.pinchCenterX - originX;
+          const targetY = g.pinchCenterY - originY;
 
           // 손가락 중심점 기준 공간 이동 보정식 반영
-          let rawPanX = targetX - (targetX - state.startPanX) * (nextZoom / state.galleryStartZoom);
-          let rawPanY = targetY - (targetY - state.startPanY) * (nextZoom / state.galleryStartZoom);
+          let rawPanX = targetX - (targetX - g.startPanX) * (nextZoom / g.startZoom);
+          let rawPanY = targetY - (targetY - g.startPanY) * (nextZoom / g.startZoom);
 
-          state.galleryZoom = nextZoom;
+          g.zoom = nextZoom;
 
           // 확대 크기에 따른 움직임 한계치 재계산 및 화면 이탈 방지 가두기
-          const maxX = Math.max(0, (viewWidth * state.galleryZoom - viewWidth) / 2);
-          const maxY = Math.max(0, (viewHeight * state.galleryZoom - viewHeight) / 2);
+          const maxX = Math.max(0, (viewWidth * g.zoom - viewWidth) / 2);
+          const maxY = Math.max(0, (viewHeight * g.zoom - viewHeight) / 2);
 
-          state.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
-          state.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
+          g.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
+          g.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
 
-          if (state.galleryZoom <= 1.0) {
-            state.panX = 0;
-            state.panY = 0;
+          if (g.zoom <= 1.0) {
+            g.panX = 0;
+            g.panY = 0;
           }
           updateCurrentImageTransform();
         }
         return;
       }
 
-      if (!state.swLive || e.touches.length !== 1) return;
+      if (!g.isSwiveLive || e.touches.length !== 1) return;
       
       // 이미지가 확대된 상태일 때 화면 이탈 방지 한계 범위 제한 지정
-      if (state.galleryZoom > 1.0) {
-        let rawPanX = state.startPanX + (e.touches[0].clientX - state.swX);
-        let rawPanY = state.startPanY + (e.touches[0].clientY - state.swY);
+      if (g.zoom > 1.0) {
+        let rawPanX = g.startPanX + (e.touches[0].clientX - g.swX);
+        let rawPanY = g.startPanY + (e.touches[0].clientY - g.swY);
 
         // 뷰포트 크기와 확대 이미지 경계 크기 차이 계산하여 최대 이동 한계치 결정
         const viewWidth = window.innerWidth;
         const viewHeight = window.innerHeight;
-        const maxX = Math.max(0, (viewWidth * state.galleryZoom - viewWidth) / 2);
-        const maxY = Math.max(0, (viewHeight * state.galleryZoom - viewHeight) / 2);
+        const maxX = Math.max(0, (viewWidth * g.zoom - viewWidth) / 2);
+        const maxY = Math.max(0, (viewHeight * g.zoom - viewHeight) / 2);
 
         // 상하좌우 한도 안에서만 위치 제어
-        state.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
-        state.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
+        g.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
+        g.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
 
         updateCurrentImageTransform();
         return;
       }
 
-      DOM.swipeContainer.style.transform = `translateX(${-state.currentSlideIndex * window.innerWidth + e.touches[0].clientX - state.swX}px)`;
-    }, { passive: true });
+      DOM.swipeContainer.style.transform = `translateX(${-state.currentSlideIndex * window.innerWidth + e.touches[0].clientX - g.swX}px)`;
+    }
 
-    DOM.galleryViewer.addEventListener('touchend', e => {
-      if (galleryPinchActive) {
-        if (e.touches.length < 2) galleryPinchActive = false;
+    function onGalleryTouchEnd(e) {
+      const g = state.galleryGesture;
+      if (g.isPinchActive) {
+        if (e.touches.length < 2) g.isPinchActive = false;
         return;
       }
 
-      if (!state.swLive) return; 
-      state.swLive = false;
+      if (!g.isSwiveLive) return; 
+      g.isSwiveLive = false;
       
-      const dx = e.changedTouches[0].clientX - state.swX;
-      const dy = e.changedTouches[0].clientY - state.swY;
-      const dt = Date.now() - state.swT;
+      const dx = e.changedTouches[0].clientX - g.swX;
+      const dy = e.changedTouches[0].clientY - g.swY;
+      const dt = Date.now() - g.swT;
       const speed = Math.abs(dx) / Math.max(dt, 1);
       const viewWidth = window.innerWidth;
       
@@ -752,7 +763,7 @@
         return;
       }
 
-      if (state.galleryZoom > 1.0) return;
+      if (g.zoom > 1.0) return;
       
       if ((dx < -viewWidth * 0.3 || (dx < -20 && speed > 0.5)) && state.currentSlideIndex < state.photosArray.length - 1) {
         state.currentSlideIndex++;
@@ -762,7 +773,12 @@
         resetSlideZoom();
       }
       moveSlide(true);
-    }, { passive: true });
+    }
+
+    // Gallery Viewer Event Binding
+    DOM.galleryViewer.addEventListener('touchstart', onGalleryTouchStart, { passive: true });
+    DOM.galleryViewer.addEventListener('touchmove', onGalleryTouchMove, { passive: true });
+    DOM.galleryViewer.addEventListener('touchend', onGalleryTouchEnd, { passive: true });
 
     // ── Permission Setup ──
     function showPermScreen(msg) {
