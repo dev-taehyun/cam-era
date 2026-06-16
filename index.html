@@ -113,7 +113,7 @@
 
     /* Save row */
     #save-row {
-      display: flex; align-items: center; gap: 5.5px;
+      display: flex; align-items: center; gap: 5.4px;
       margin-bottom: 10px;
       pointer-events: all;
     }
@@ -207,6 +207,10 @@
       padding-left: 20px; padding-right: 20px; padding-bottom: 12px;
       background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
       z-index: 110;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    #viewer-header.ui-hidden {
+      opacity: 0; pointer-events: none; transform: translateY(-10px);
     }
     .viewer-btn {
       width: 36px; height: 36px;
@@ -227,10 +231,13 @@
     .swipe-slide {
       min-width: 100%; height: 100%;
       display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
     }
     .swipe-slide img {
       max-width: 100%; max-height: 100%;
       object-fit: contain; pointer-events: none; display: block;
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
     }
 
     /* ── Toast ── */
@@ -332,6 +339,7 @@
       viewerClose: document.getElementById('viewer-close'),
       viewerDownload: document.getElementById('viewer-download'),
       viewerCounter: document.getElementById('viewer-counter'),
+      viewerHeader: document.getElementById('viewer-header'),
       toast: document.getElementById('toast'),
       zoomIndicator: document.getElementById('zoom-indicator')
     };
@@ -357,9 +365,18 @@
       pinchStartDist: 0,
       pinchStartZoom: 1.0,
       swX: 0,
+      swY: 0, 
       swT: 0,
       swLive: false,
-      lastTap: 0
+      lastTap: 0,
+
+      // 갤러리 내부 전용 확대 및 자유 위치 탐색 변수
+      galleryZoom: 1.0,
+      galleryStartZoom: 1.0,
+      panX: 0,
+      panY: 0,
+      startPanX: 0,
+      startPanY: 0
     };
 
     // ── Utility Functions ──
@@ -474,7 +491,7 @@
     }
 
     document.addEventListener('touchstart', e => {
-      if (e.touches.length === 2 && state.zoomSupported) {
+      if (e.touches.length === 2 && state.zoomSupported && DOM.galleryViewer.style.display !== 'block') {
         state.pinchActive    = true;
         state.pinchStartDist = getTouchDist(e.touches);
         state.pinchStartZoom = state.currentZoom;
@@ -579,15 +596,22 @@
       
       state.currentSlideIndex = state.photosArray.length - 1;
       DOM.galleryViewer.style.display = 'block';
+      DOM.viewerHeader.classList.remove('ui-hidden'); 
+      resetSlideZoom(); 
       setTimeout(() => moveSlide(false), 30);
     });
 
-    DOM.viewerClose.addEventListener('click', () => {
+    DOM.viewerHeader.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    DOM.viewerHeader.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
+
+    DOM.viewerClose.addEventListener('click', (e) => {
+      if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
       DOM.galleryViewer.style.display = 'none';
       setTimeout(checkAndResumeCamera, 100);
     });
 
-    DOM.viewerDownload.addEventListener('click', () => {
+    DOM.viewerDownload.addEventListener('click', (e) => {
+      if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
       if (state.photosArray[state.currentSlideIndex]) {
         saveImage(state.photosArray[state.currentSlideIndex], true);
       }
@@ -599,9 +623,46 @@
       DOM.viewerCounter.textContent = `${state.currentSlideIndex + 1} / ${state.photosArray.length}`;
     }
 
+    function resetSlideZoom() {
+      state.galleryZoom = 1.0;
+      state.panX = 0;
+      state.panY = 0;
+      const imgs = DOM.swipeContainer.querySelectorAll('.swipe-slide img');
+      imgs.forEach(img => {
+        img.style.transform = 'translate(0px, 0px) scale(1)';
+      });
+    }
+
+    function updateCurrentImageTransform() {
+      const currentImg = DOM.swipeContainer.children[state.currentSlideIndex]?.querySelector('img');
+      if (currentImg) {
+        currentImg.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.galleryZoom})`;
+      }
+    }
+
+    let galleryPinchActive = false;
+    let galleryPinchStartDist = 0;
+    let pinchCenterX = 0;
+    let pinchCenterY = 0;
+
     DOM.galleryViewer.addEventListener('touchstart', e => {
-      if (e.touches.length === 1) { 
+      if (e.touches.length === 2) {
+        state.swLive = false;
+        galleryPinchActive = true;
+        galleryPinchStartDist = getTouchDist(e.touches);
+        state.galleryStartZoom = state.galleryZoom;
+
+        // 두 손가락의 중심 좌표 계산
+        pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        
+        state.startPanX = state.panX;
+        state.startPanY = state.panY;
+      } else if (e.touches.length === 1) { 
         state.swX = e.touches[0].clientX; 
+        state.swY = e.touches[0].clientY; 
+        state.startPanX = state.panX;
+        state.startPanY = state.panY;
         state.swT = Date.now(); 
         state.swLive = true; 
         DOM.swipeContainer.style.transition = 'none'; 
@@ -609,22 +670,96 @@
     }, { passive: true });
 
     DOM.galleryViewer.addEventListener('touchmove', e => {
+      if (galleryPinchActive && e.touches.length === 2) {
+        const dist = getTouchDist(e.touches);
+        const ratio = dist / galleryPinchStartDist;
+        const nextZoom = Math.max(1.0, Math.min(4.0, state.galleryStartZoom * ratio));
+        
+        if (nextZoom !== state.galleryZoom) {
+          // 화면 중심 좌표 정의
+          const viewWidth = window.innerWidth;
+          const viewHeight = window.innerHeight;
+          const originX = viewWidth / 2;
+          const originY = viewHeight / 2;
+
+          // 손가락 위치 기준 중심점을 타겟으로 잡고 배율 보정치 계산
+          const targetX = pinchCenterX - originX;
+          const targetY = pinchCenterY - originY;
+
+          // 손가락 중심점 기준 공간 이동 보정식 반영
+          let rawPanX = targetX - (targetX - state.startPanX) * (nextZoom / state.galleryStartZoom);
+          let rawPanY = targetY - (targetY - state.startPanY) * (nextZoom / state.galleryStartZoom);
+
+          state.galleryZoom = nextZoom;
+
+          // 확대 크기에 따른 움직임 한계치 재계산 및 화면 이탈 방지 가두기
+          const maxX = Math.max(0, (viewWidth * state.galleryZoom - viewWidth) / 2);
+          const maxY = Math.max(0, (viewHeight * state.galleryZoom - viewHeight) / 2);
+
+          state.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
+          state.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
+
+          if (state.galleryZoom <= 1.0) {
+            state.panX = 0;
+            state.panY = 0;
+          }
+          updateCurrentImageTransform();
+        }
+        return;
+      }
+
       if (!state.swLive || e.touches.length !== 1) return;
+      
+      // 이미지가 확대된 상태일 때 화면 이탈 방지 한계 범위 제한 지정
+      if (state.galleryZoom > 1.0) {
+        let rawPanX = state.startPanX + (e.touches[0].clientX - state.swX);
+        let rawPanY = state.startPanY + (e.touches[0].clientY - state.swY);
+
+        // 뷰포트 크기와 확대 이미지 경계 크기 차이 계산하여 최대 이동 한계치 결정
+        const viewWidth = window.innerWidth;
+        const viewHeight = window.innerHeight;
+        const maxX = Math.max(0, (viewWidth * state.galleryZoom - viewWidth) / 2);
+        const maxY = Math.max(0, (viewHeight * state.galleryZoom - viewHeight) / 2);
+
+        // 상하좌우 한도 안에서만 위치 제어
+        state.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
+        state.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
+
+        updateCurrentImageTransform();
+        return;
+      }
+
       DOM.swipeContainer.style.transform = `translateX(${-state.currentSlideIndex * window.innerWidth + e.touches[0].clientX - state.swX}px)`;
     }, { passive: true });
 
     DOM.galleryViewer.addEventListener('touchend', e => {
+      if (galleryPinchActive) {
+        if (e.touches.length < 2) galleryPinchActive = false;
+        return;
+      }
+
       if (!state.swLive) return; 
       state.swLive = false;
       
       const dx = e.changedTouches[0].clientX - state.swX;
-      const speed = Math.abs(dx) / Math.max(Date.now() - state.swT, 1);
+      const dy = e.changedTouches[0].clientY - state.swY;
+      const dt = Date.now() - state.swT;
+      const speed = Math.abs(dx) / Math.max(dt, 1);
       const viewWidth = window.innerWidth;
+      
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5 && dt < 250) {
+        DOM.viewerHeader.classList.toggle('ui-hidden');
+        return;
+      }
+
+      if (state.galleryZoom > 1.0) return;
       
       if ((dx < -viewWidth * 0.3 || (dx < -20 && speed > 0.5)) && state.currentSlideIndex < state.photosArray.length - 1) {
         state.currentSlideIndex++;
+        resetSlideZoom();
       } else if ((dx > viewWidth * 0.3 || (dx > 20 && speed > 0.5)) && state.currentSlideIndex > 0) {
         state.currentSlideIndex--;
+        resetSlideZoom();
       }
       moveSlide(true);
     }, { passive: true });
