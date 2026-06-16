@@ -24,7 +24,6 @@
       background: #000;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
       overscroll-behavior: none;
-      /* ⚡ 변경 포인트 2: body 전체에 touch-action 주입 후, 제스처가 필요한 갤러리에만 개별 허용 */
       touch-action: none; 
     }
 
@@ -83,10 +82,11 @@
       pointer-events: none;
     }
 
-    /* ── Zoom indicator ── */
+    /* ── ⚡ 배율 표시기: 화면 중앙 하단 배치 ── */
     #zoom-indicator {
       position: fixed;
-      bottom: 178px; left: 50%;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 40px); /* 화면 맨 하단 중앙 여백 */
+      left: 50%;
       transform: translateX(-50%);
       background: rgba(0,0,0,0.52);
       backdrop-filter: blur(16px) saturate(1.4);
@@ -101,26 +101,33 @@
     }
     #zoom-indicator.visible { opacity: 1; }
 
-    /* ── Bottom Bar ── */
+    /* ── ⚡ 아이패드 카메라 레이아웃: 우측 사이드 정렬 바 ── */
     #bottom-bar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      padding: 0 32px calc(env(safe-area-inset-bottom, 0px) + 32px);
+      position: fixed; 
+      top: 0; right: 0; bottom: 0;
+      width: 120px; /* 우측 사이드바 영역 확정 */
+      padding: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-right, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px) 0;
       display: none;
-      flex-direction: column; align-items: center;
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; /* 세로 중앙 정렬 */
       z-index: 30;
-      background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%);
+      background: linear-gradient(to left, rgba(0,0,0,0.4) 0%, transparent 100%);
       pointer-events: none;
     }
 
-    /* Save row */
+    /* ── ⚡ 저장 토글: 셔터 컴포넌트 바로 위 그룹 배치 ── */
     #save-row {
-      display: flex; align-items: center; gap: 0.3em;
-      margin-bottom: 10px;
+      display: flex; 
+      align-items: center; 
+      gap: 0.35em; /* ⚡ 0.35em 간격 정밀 반영 */
+      margin-bottom: 28px; /* 셔터 단추와의 수직 거리 확보 */
       pointer-events: all;
     }
     #save-label {
       color: rgba(255,255,255,0.75);
       font-size: 13px; font-weight: 500; letter-spacing: 0.01em;
+      white-space: nowrap;
     }
     #save-toggle {
       position: relative; width: 46px; height: 28px;
@@ -143,34 +150,38 @@
     }
     #save-toggle input:checked ~ .t-thumb { transform: translateX(18px); }
 
-    /* Control row */
+    /* ── 컨트롤 버튼 정렬 컴포넌트 (세로 정렬) ── */
     #control-row {
-      width: 100%; display: flex;
-      align-items: center; justify-content: space-between;
+      display: flex;
+      flex-direction: column; /* 아이패드 정석: 세로 배열 */
+      align-items: center; 
+      gap: 28px; /* 각 버튼 간 상하 격차 공백 */
       pointer-events: none;
     }
 
-    /* Thumbnail */
-    #thumbnail-slot {
-      width: 52px; height: 52px; border-radius: 10px;
-      border: 2.5px solid rgba(255,255,255,0.65);
-      overflow: hidden; background: rgba(255,255,255,0.06);
-      cursor: pointer; pointer-events: all;
-      flex-shrink: 0; transition: opacity 0.15s;
+    /* 카메라 전환 (위쪽 배치) */
+    #flip-btn {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: all; flex-shrink: 0;
+      order: 1; /* 순서 강제 정의 */
+      transition: background 0.15s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    #thumbnail-slot:active { opacity: 0.7; }
-    #thumbnail-slot img {
-      width: 100%; height: 100%; object-fit: cover; display: none;
-    }
+    #flip-btn:active { background: rgba(255,255,255,0.22); }
+    #flip-btn.spinning { transform: rotate(180deg); }
 
-    /* Shutter */
+    /* 메인 셔터 버튼 (정중앙 배치) */
     #shutter {
       width: 76px; height: 76px; border-radius: 50%;
       background: transparent;
       border: 3.5px solid rgba(255,255,255,0.9);
       cursor: pointer; position: relative; flex-shrink: 0;
-      transition: transform 0.1s ease;
       pointer-events: all;
+      order: 2;
+      transition: transform 0.1s ease;
     }
     #shutter::after {
       content: ''; position: absolute; inset: 6px;
@@ -180,25 +191,25 @@
     #shutter:active { transform: scale(0.91); }
     #shutter:active::after { transform: scale(0.86); opacity: 0.8; }
 
-    /* Flip */
-    #flip-btn {
-      width: 52px; height: 52px; border-radius: 50%;
-      background: rgba(255,255,255,0.12);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: none; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      pointer-events: all; flex-shrink: 0;
-      transition: background 0.15s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* 갤러리 썸네일 슬롯 (아래쪽 배치) */
+    #thumbnail-slot {
+      width: 52px; height: 52px; border-radius: 10px;
+      border: 2.5px solid rgba(255,255,255,0.65);
+      overflow: hidden; background: rgba(255,255,255,0.06);
+      cursor: pointer; pointer-events: all;
+      flex-shrink: 0;
+      order: 3;
+      transition: opacity 0.15s;
     }
-    #flip-btn:active { background: rgba(255,255,255,0.22); }
-    #flip-btn.spinning { transform: rotate(180deg); }
+    #thumbnail-slot:active { opacity: 0.7; }
+    #thumbnail-slot img {
+      width: 100%; height: 100%; object-fit: cover; display: none;
+    }
 
     /* ── Gallery viewer ── */
     #gallery-viewer {
       position: fixed; inset: 0; background: #000;
       z-index: 100; display: none;
-      /* ⚡ 변경 포인트 3: body는 touch-action이 막혔으므로 갤러리 뷰어만 가로 스와이프 허용 */
       touch-action: pan-x; 
     }
     #viewer-header {
@@ -279,8 +290,6 @@
       </label>
     </div>
     <div id="control-row">
-      <div id="thumbnail-slot"><img id="thumbnail" alt=""></div>
-      <button id="shutter" aria-label="촬영"></button>
       <button id="flip-btn" aria-label="카메라 전환">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
@@ -288,6 +297,8 @@
           <path d="M3.51 15a9 9 0 0 0 14.85 3.36L23 14"/>
         </svg>
       </button>
+      <button id="shutter" aria-label="촬영"></button>
+      <div id="thumbnail-slot"><img id="thumbnail" alt=""></div>
     </div>
   </div>
 
@@ -358,21 +369,14 @@
       lastTap = now;
     }, { passive: false });
 
-    // ── ⚡ 핀치 제스처 시 브라우저 기본 확대 기능 강제 파괴 (핵심 최적화) ──
+    /* 브라우저 대지 전체 줌 가드라인 인터셉터 */
     document.addEventListener('touchstart', e => {
-      if (e.touches.length > 1) {
-        // 두 손가락 이상이 닿으면 브라우저의 줌 이벤트를 원천 취소합니다.
-        e.preventDefault(); 
-      }
-    }, { passive: false }); // 👈 passive: false가 필수적입니다.
-
-    document.addEventListener('touchmove', e => {
-      if (e.touches.length > 1) {
-        // 멀티터치 이동(핀치) 시 브라우저 화면이 커지는 동작을 완벽히 차단합니다.
-        e.preventDefault();
-      }
+      if (e.touches.length > 1) e.preventDefault(); 
     }, { passive: false });
 
+    document.addEventListener('touchmove', e => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
 
     async function startCamera(facing, isSilent = false) {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -450,14 +454,13 @@
       return Math.hypot(dx, dy);
     }
 
-    // ⚡ 브라우저 기본 기능은 막고, 순수 하드웨어 Zoom 값 수동 연산 인터셉트
     document.addEventListener('touchstart', e => {
       if (e.touches.length === 2 && zoomSupported) {
         pinchActive    = true;
         pinchStartDist = getTouchDist(e.touches);
         pinchStartZoom = currentZoom;
       }
-    }, { passive: false }); // 👈 인터셉트를 위해 passive false 유지
+    }, { passive: false });
 
     document.addEventListener('touchmove', e => {
       if (!pinchActive || e.touches.length !== 2) return;
@@ -545,6 +548,7 @@
 
     function moveSlide(anim = true) {
       swipeContainer.style.transition = anim ? 'transform 0.3s cubic-bezier(0.16,1,0.3,1)' : 'none';
+      // 슬라이드 폭 연산 규격 수정 (아이패드용 세로모드/가로모드 대응 유동적 너비 반영)
       swipeContainer.style.transform  = `translateX(${-currentSlideIndex * window.innerWidth}px)`;
       viewerCounter.textContent = `${currentSlideIndex + 1} / ${photosArray.length}`;
     }
