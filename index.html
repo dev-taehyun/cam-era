@@ -540,7 +540,7 @@
       DOM.zoomIndicator.textContent = `${level.toFixed(1)}×`;
       DOM.zoomIndicator.classList.add('visible');
       clearTimeout(state.zoom.hideTimer);
-      state.zoom.hideTimer = setTimeout(() => DOM.zoomIndicator.classList.remove('visible'), 1500);
+      state.zoom.hideTimer = setTimeout(() => DOM.zoomIndicator.classList.remove('visible'), 1000);
     }
 
     // ── Capture & Shutter ──
