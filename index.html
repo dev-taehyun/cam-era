@@ -24,6 +24,7 @@
       background: #000;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
       overscroll-behavior: none;
+      /* ⚡ 변경 포인트 2: body 전체에 touch-action 주입 후, 제스처가 필요한 갤러리에만 개별 허용 */
       touch-action: none; 
     }
 
@@ -82,11 +83,10 @@
       pointer-events: none;
     }
 
-    /* ── 배율 표시기 (화면 중앙 하단 유지) ── */
+    /* ── Zoom indicator ── */
     #zoom-indicator {
       position: fixed;
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
-      left: 50%;
+      bottom: 178px; left: 50%;
       transform: translateX(-50%);
       background: rgba(0,0,0,0.52);
       backdrop-filter: blur(16px) saturate(1.4);
@@ -101,51 +101,26 @@
     }
     #zoom-indicator.visible { opacity: 1; }
 
-    /* ── 우측 사이드 정렬 바 ── */
+    /* ── Bottom Bar ── */
     #bottom-bar {
-      position: fixed; 
-      top: 0; right: 0; bottom: 0;
-      width: 140px;
-      padding: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-right, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px) 0;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 0 32px calc(env(safe-area-inset-bottom, 0px) + 32px);
       display: none;
-      flex-direction: column; 
-      align-items: center; 
-      justify-content: center; 
+      flex-direction: column; align-items: center;
       z-index: 30;
-      background: linear-gradient(to left, rgba(0,0,0,0.4) 0%, transparent 100%);
+      background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%);
       pointer-events: none;
     }
 
-    /* ── 우측 메인 컨트롤 세로 배열 구조 ── */
-    #control-row {
-      display: flex;
-      flex-direction: column; 
-      align-items: center; 
-      gap: 28px; /* 각 버튼 그룹(전환, 셔터세트, 갤러리) 사이의 간격 */
-      pointer-events: none;
-    }
-
-    /* ⚡ 셔터 버튼과 사진 저장 토글을 한 몸으로 묶는 내부 래퍼 컨테이너 */
-    .shutter-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      /* ⚡ 기존 하단 바 레이아웃 시절의 토글-셔터 사이 수직 간격(margin-bottom: 10px)을 완벽히 재현 */
-      gap: 10px; 
-      pointer-events: none;
-    }
-
-    /* ⚡ 사진 저장 문구와 토글 버튼 세트 */
+    /* Save row */
     #save-row {
-      display: flex; 
-      align-items: center; 
-      gap: 0.35em; /* 요구하신 0.35em 정밀 반영 */
+      display: flex; align-items: center; gap: 0.4em;
+      margin-bottom: 10px;
       pointer-events: all;
     }
     #save-label {
       color: rgba(255,255,255,0.75);
       font-size: 13px; font-weight: 500; letter-spacing: 0.01em;
-      white-space: nowrap;
     }
     #save-toggle {
       position: relative; width: 46px; height: 28px;
@@ -168,14 +143,34 @@
     }
     #save-toggle input:checked ~ .t-thumb { transform: translateX(18px); }
 
-    /* 메인 셔터 버튼 */
+    /* Control row */
+    #control-row {
+      width: 100%; display: flex;
+      align-items: center; justify-content: space-between;
+      pointer-events: none;
+    }
+
+    /* Thumbnail */
+    #thumbnail-slot {
+      width: 52px; height: 52px; border-radius: 10px;
+      border: 2.5px solid rgba(255,255,255,0.65);
+      overflow: hidden; background: rgba(255,255,255,0.06);
+      cursor: pointer; pointer-events: all;
+      flex-shrink: 0; transition: opacity 0.15s;
+    }
+    #thumbnail-slot:active { opacity: 0.7; }
+    #thumbnail-slot img {
+      width: 100%; height: 100%; object-fit: cover; display: none;
+    }
+
+    /* Shutter */
     #shutter {
       width: 76px; height: 76px; border-radius: 50%;
       background: transparent;
       border: 3.5px solid rgba(255,255,255,0.9);
       cursor: pointer; position: relative; flex-shrink: 0;
-      pointer-events: all;
       transition: transform 0.1s ease;
+      pointer-events: all;
     }
     #shutter::after {
       content: ''; position: absolute; inset: 6px;
@@ -185,11 +180,12 @@
     #shutter:active { transform: scale(0.91); }
     #shutter:active::after { transform: scale(0.86); opacity: 0.8; }
 
-    /* 카메라 전환 (위쪽 배치) */
+    /* Flip */
     #flip-btn {
       width: 52px; height: 52px; border-radius: 50%;
       background: rgba(255,255,255,0.12);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       pointer-events: all; flex-shrink: 0;
@@ -198,24 +194,11 @@
     #flip-btn:active { background: rgba(255,255,255,0.22); }
     #flip-btn.spinning { transform: rotate(180deg); }
 
-    /* 갤러리 썸네일 슬롯 (아래쪽 배치) */
-    #thumbnail-slot {
-      width: 52px; height: 52px; border-radius: 10px;
-      border: 2.5px solid rgba(255,255,255,0.65);
-      overflow: hidden; background: rgba(255,255,255,0.06);
-      cursor: pointer; pointer-events: all;
-      flex-shrink: 0;
-      transition: opacity 0.15s;
-    }
-    #thumbnail-slot:active { opacity: 0.7; }
-    #thumbnail-slot img {
-      width: 100%; height: 100%; object-fit: cover; display: none;
-    }
-
     /* ── Gallery viewer ── */
     #gallery-viewer {
       position: fixed; inset: 0; background: #000;
       z-index: 100; display: none;
+      /* ⚡ 변경 포인트 3: body는 touch-action이 막혔으므로 갤러리 뷰어만 가로 스와이프 허용 */
       touch-action: pan-x; 
     }
     #viewer-header {
@@ -287,7 +270,17 @@
   <div id="zoom-indicator">1.0×</div>
 
   <div id="bottom-bar">
+    <div id="save-row">
+      <span id="save-label">사진 저장</span>
+      <label id="save-toggle" for="save-cb">
+        <input type="checkbox" id="save-cb">
+        <span class="t-track"></span>
+        <span class="t-thumb"></span>
+      </label>
+    </div>
     <div id="control-row">
+      <div id="thumbnail-slot"><img id="thumbnail" alt=""></div>
+      <button id="shutter" aria-label="촬영"></button>
       <button id="flip-btn" aria-label="카메라 전환">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
@@ -295,20 +288,6 @@
           <path d="M3.51 15a9 9 0 0 0 14.85 3.36L23 14"/>
         </svg>
       </button>
-
-      <div class="shutter-group">
-        <div id="save-row">
-          <span id="save-label">사진 저장</span>
-          <label id="save-toggle" for="save-cb">
-            <input type="checkbox" id="save-cb">
-            <span class="t-track"></span>
-            <span class="t-thumb"></span>
-          </label>
-        </div>
-        <button id="shutter" aria-label="촬영"></button>
-      </div>
-
-      <div id="thumbnail-slot"><img id="thumbnail" alt=""></div>
     </div>
   </div>
 
@@ -379,14 +358,21 @@
       lastTap = now;
     }, { passive: false });
 
-    /* 브라우저 대지 전체 줌 가드라인 인터셉터 */
+    // ── ⚡ 핀치 제스처 시 브라우저 기본 확대 기능 강제 파괴 (핵심 최적화) ──
     document.addEventListener('touchstart', e => {
-      if (e.touches.length > 1) e.preventDefault(); 
-    }, { passive: false });
+      if (e.touches.length > 1) {
+        // 두 손가락 이상이 닿으면 브라우저의 줌 이벤트를 원천 취소합니다.
+        e.preventDefault(); 
+      }
+    }, { passive: false }); // 👈 passive: false가 필수적입니다.
 
     document.addEventListener('touchmove', e => {
-      if (e.touches.length > 1) e.preventDefault();
+      if (e.touches.length > 1) {
+        // 멀티터치 이동(핀치) 시 브라우저 화면이 커지는 동작을 완벽히 차단합니다.
+        e.preventDefault();
+      }
     }, { passive: false });
+
 
     async function startCamera(facing, isSilent = false) {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -464,13 +450,14 @@
       return Math.hypot(dx, dy);
     }
 
+    // ⚡ 브라우저 기본 기능은 막고, 순수 하드웨어 Zoom 값 수동 연산 인터셉트
     document.addEventListener('touchstart', e => {
       if (e.touches.length === 2 && zoomSupported) {
         pinchActive    = true;
         pinchStartDist = getTouchDist(e.touches);
         pinchStartZoom = currentZoom;
       }
-    }, { passive: false });
+    }, { passive: false }); // 👈 인터셉트를 위해 passive false 유지
 
     document.addEventListener('touchmove', e => {
       if (!pinchActive || e.touches.length !== 2) return;
