@@ -198,14 +198,13 @@
     #gallery-viewer {
       position: fixed; inset: 0; background: #000;
       z-index: 100; display: none;
-      touch-action: pan-x; 
+      touch-action: none;
     }
+    
     #viewer-header {
       position: absolute; top: 0; left: 0; right: 0;
       height: 72px;
       padding-top: env(safe-area-inset-top, 0px);
-      display: flex; align-items: flex-end; justify-content: space-between;
-      padding-left: 20px; padding-right: 20px; padding-bottom: 12px;
       background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
       z-index: 110;
       transition: opacity 0.2s ease, transform 0.2s ease;
@@ -213,6 +212,15 @@
     #viewer-header.ui-hidden {
       opacity: 0; pointer-events: none; transform: translateY(-10px);
     }
+    
+    .header-inner {
+      position: relative;
+      width: 100%; height: 100%;
+      display: flex;
+      align-items: flex-end;
+      padding-bottom: 12px;
+    }
+    
     .viewer-btn {
       width: 36px; height: 36px;
       background: rgba(0,0,0,0.4);
@@ -222,15 +230,156 @@
       transition: opacity 0.15s;
     }
     .viewer-btn:active { opacity: 0.6; }
+    
+    #viewer-left-controls {
+      position: absolute; left: 20px; bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 112;
+    }
+    
+    .header-title-center {
+      position: absolute;
+      left: 50%; bottom: 18px; 
+      transform: translateX(-50%);
+      color: #fff; font-size: 15px; font-weight: 600;
+      letter-spacing: -0.2px; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      text-align: center;
+      z-index: 111;
+      pointer-events: none;
+      white-space: nowrap;
+      line-height: 1;
+    }
+    
     #viewer-right-controls {
+      position: absolute; right: 20px; bottom: 12px;
       display: flex;
       align-items: center;
       gap: 14px;
+      z-index: 112;
     }
-    #viewer-counter {
-      color: #fff; font-size: 15px; font-weight: 600;
-      letter-spacing: -0.2px; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+
+    #viewer-select-toggle {
+      background: #007AFF;
+      border-radius: 100px;
+      padding: 0 14px;
+      height: 24px;
+      line-height: 24px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      align-self: flex-end;
+      margin-bottom: 6px;
     }
+    #viewer-select-toggle.active {
+      background: rgba(255,255,255,0.12);
+    }
+
+    /* ── 갤러리 미디어 바둑판 그리드 컨테이너 ── */
+    #gallery-grid-layer {
+      position: absolute; inset: 0;
+      top: calc(72px + env(safe-area-inset-top, 0px));
+      bottom: env(safe-area-inset-bottom, 0px);
+      padding: 4px 2px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-auto-rows: calc((100vw - 10px) / 4);
+      gap: 2px;
+      background: #000;
+      z-index: 101;
+      touch-action: pan-y;
+    }
+    #gallery-grid-layer.select-mode-active {
+      bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .grid-item {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #090909;
+      overflow: hidden;
+    }
+    .grid-item:active {
+      opacity: 0.75;
+    }
+    .grid-item img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      transition: transform 0.2s ease;
+    }
+    
+    .grid-item .select-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s ease;
+      display: flex; align-items: flex-end; justify-content: right;
+      padding: 6px;
+      z-index: 5;
+    }
+    .grid-item .select-badge {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.6);
+      background: rgba(0,0,0,0.2);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .grid-item .select-badge svg { display: none; }
+
+    .grid-item.selected img {
+      transform: scale(0.92);
+    }
+    .grid-item.selected .select-overlay {
+      opacity: 1;
+    }
+    .grid-item.selected .select-badge {
+      background: #007AFF; border-color: #007AFF;
+    }
+    .grid-item.selected .select-badge svg {
+      display: block;
+    }
+
+    /* ── 다중 선택용 하단 툴바 컨테이너 ── */
+    #gallery-bulk-toolbar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: calc(76px + env(safe-area-inset-bottom, 0px));
+      padding: 12px 24px calc(env(safe-area-inset-bottom, 0px) + 12px);
+      background: rgba(20,20,20,0.94);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-top: 0.5px solid rgba(255,255,255,0.1);
+      display: none;
+      align-items: center; justify-content: space-between;
+      z-index: 115;
+    }
+    .bulk-btn {
+      flex: 1; height: 44px; border-radius: 12px;
+      font-size: 14px; font-weight: 600; border: none;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: opacity 0.15s;
+    }
+    .bulk-btn:active { opacity: 0.7; }
+    #bulk-download { background: rgba(255,255,255,0.12); color: #fff; margin-right: 12px; }
+    #bulk-delete { background: rgba(255, 59, 48, 0.2); color: #FF453A; }
+
+    /* ── 상세 인스펙터 슬라이더 컨테이너 래퍼 ── */
+    #gallery-detail-layer {
+      position: absolute; inset: 0;
+      background: #000;
+      z-index: 102;
+      display: none;
+      touch-action: pan-x;
+    }
+
     #swipe-container {
       display: flex; width: 100%; height: 100%; will-change: transform;
     }
@@ -304,29 +453,54 @@
 
   <div id="gallery-viewer">
     <div id="viewer-header">
-      <button class="viewer-btn" id="viewer-close" aria-label="닫기">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-      <div id="viewer-counter">1 / 1</div>
-      <div id="viewer-right-controls">
-        <button class="viewer-btn" id="viewer-delete" aria-label="삭제" style="background: rgba(255, 59, 48, 0.35);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          </svg>
-        </button>
-        <button class="viewer-btn" id="viewer-download" aria-label="다운로드">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-        </button>
+      <div class="header-inner">
+        <div id="viewer-left-controls">
+          <button class="viewer-btn" id="viewer-close" aria-label="닫기">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <button class="viewer-btn" id="viewer-grid" aria-label="전체 보기" style="display: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </button>
+        </div>
+        
+        <div id="viewer-counter" class="header-title-center">모든 사진</div>
+        
+        <div id="viewer-right-controls">
+          <button id="viewer-select-toggle">선택</button>
+          <button class="viewer-btn" id="viewer-delete" aria-label="삭제" style="background: rgba(255, 59, 48, 0.35);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+          <button class="viewer-btn" id="viewer-download" aria-label="다운로드">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
-    <div id="swipe-container"></div>
+    
+    <div id="gallery-grid-layer"></div>
+    
+    <div id="gallery-bulk-toolbar">
+      <button class="bulk-btn" id="bulk-download">선택 다운로드</button>
+      <button class="bulk-btn" id="bulk-delete">선택 삭제</button>
+    </div>
+
+    <div id="gallery-detail-layer">
+      <div id="swipe-container"></div>
+    </div>
   </div>
 
   <div id="toast"></div>
@@ -349,12 +523,19 @@
       thumbnailImg: document.getElementById('thumbnail'),
       saveCheckbox: document.getElementById('save-cb'),
       galleryViewer: document.getElementById('gallery-viewer'),
+      galleryGridLayer: document.getElementById('gallery-grid-layer'),
+      galleryDetailLayer: document.getElementById('gallery-detail-layer'),
       swipeContainer: document.getElementById('swipe-container'),
       viewerClose: document.getElementById('viewer-close'),
+      viewerGrid: document.getElementById('viewer-grid'),
+      viewerSelectToggle: document.getElementById('viewer-select-toggle'),
       viewerDelete: document.getElementById('viewer-delete'),
       viewerDownload: document.getElementById('viewer-download'),
       viewerCounter: document.getElementById('viewer-counter'),
       viewerHeader: document.getElementById('viewer-header'),
+      galleryBulkToolbar: document.getElementById('gallery-bulk-toolbar'),
+      bulkDownload: document.getElementById('bulk-download'),
+      bulkDelete: document.getElementById('bulk-delete'),
       toast: document.getElementById('toast'),
       zoomIndicator: document.getElementById('zoom-indicator')
     };
@@ -363,11 +544,16 @@
     const state = {
       currentStream: null,
       facingMode: 'environment',
-      photosArray: [], // { id, blob, objectUrl, timestamp } 형태로 채워집니다.
+      photosArray: [], 
       currentSlideIndex: 0,
       toastTimer: null,
       lastTap: 0,
-      
+      galleryViewMode: 'grid', 
+      isSelectMode: false,
+      selectedPhotoIds: new Set(),
+      draggedPhotoIds: new Set(),
+      isDraggingSelect: false,
+
       // Camera Zoom Settings
       zoom: {
         track: null,
@@ -404,9 +590,9 @@
       }
     };
 
-    // ── 1. IndexedDB 설정 및 초기화 (무손실 최적화 바이너리) ──
+    // ── IndexedDB 설정 및 초기화 ──
     const DB_NAME = 'CamEraDB';
-    const DB_VERSION = 2; // 구조 업데이트를 위해 버전 상향
+    const DB_VERSION = 2; 
     const STORE_NAME = 'photos';
     let db = null;
 
@@ -434,7 +620,6 @@
       });
     }
 
-    // DB에서 모든 무손실 사진 로드 및 메모리 가상 매핑(ObjectURL) 처리
     function loadPhotosFromDB() {
       return new Promise((resolve) => {
         if (!db) return resolve([]);
@@ -447,7 +632,7 @@
           const mappedPhotos = records.map(item => ({
             id: item.id,
             blob: item.blob,
-            objectUrl: URL.createObjectURL(item.blob), // 초고속 브라우저 바인딩용 매핑
+            objectUrl: URL.createObjectURL(item.blob), 
             timestamp: item.timestamp
           }));
           resolve(mappedPhotos);
@@ -456,7 +641,6 @@
       });
     }
 
-    // 순수 원본 바이너리 파일(Blob) 형태로 IndexedDB에 다이렉트 저장
     function savePhotoToDB(blob) {
       return new Promise((resolve) => {
         if (!db) return resolve(null);
@@ -484,7 +668,6 @@
       });
     }
 
-    // IndexedDB에서 특정 레코드 영구 삭제 로직
     function deletePhotoFromDB(id) {
       return new Promise((resolve) => {
         if (!db) return resolve(false);
@@ -496,7 +679,6 @@
         request.onerror = () => resolve(false);
       });
     }
-
 
     // ── Utility Functions ──
     const pad = (n) => String(n).padStart(2, '0');
@@ -512,19 +694,21 @@
       return Math.hypot(dx, dy);
     };
 
-    // ── System Event Blockers (iOS Safari / PWA Optimized) ──
+    // ── System Event Blockers ──
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('selectstart', e => e.preventDefault());
     document.addEventListener('dragstart', e => e.preventDefault());
 
-    // Prevent Double-Tap Zoom
     document.addEventListener('touchend', e => {
       const now = Date.now();
-      if (now - state.lastTap < 280) e.preventDefault();
+      if (now - state.lastTap < 280) {
+        if (state.galleryViewMode !== 'grid' || !state.isSelectMode) {
+          e.preventDefault();
+        }
+      }
       state.lastTap = now;
     }, { passive: false });
 
-    // Block Native Browser Pinch Zoom
     document.addEventListener('touchstart', e => {
       if (e.touches.length > 1) e.preventDefault();
     }, { passive: false });
@@ -532,7 +716,6 @@
     document.addEventListener('touchmove', e => {
       if (e.touches.length > 1) e.preventDefault();
     }, { passive: false });
-
 
     // ── Camera Core Functions ──
     async function startCamera(facing, isSilent = false) {
@@ -550,7 +733,6 @@
       
       state.facingMode = facing;
       
-      // 기기 스트림 충돌을 방지하기 위한 계단식 디그레이데이션 세팅 (4K -> Full HD -> 자유 해상도 순차 폴백)
       const constraintsQueue = [
         { facingMode: facing, width: { ideal: 4096 }, height: { ideal: 2160 }, frameRate: { ideal: 30 } },
         { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -652,15 +834,14 @@
       showZoomLabel(level);
     }
 
-    function functionShowZoomLabel(level) {
+    function showZoomLabel(level) {
       DOM.zoomIndicator.textContent = `${level.toFixed(1)}×`;
       DOM.zoomIndicator.classList.add('visible');
       clearTimeout(state.zoom.hideTimer);
       state.zoom.hideTimer = setTimeout(() => DOM.zoomIndicator.classList.remove('visible'), 1200);
     }
-    const showZoomLabel = functionShowZoomLabel;
 
-    // ── Capture & Shutter (무손실 최적화 반영) ──
+    // ── Capture & Shutter ──
     DOM.shutter.addEventListener('click', () => {
       if (!state.currentStream) return;
       
@@ -689,7 +870,6 @@
           photoObject = savedItem;
           state.photosArray.push(photoObject);
         } else {
-          // 용량 부족 등으로 DB 저장에 실패했을 시 브라우저 인메모리 폴백 전환 및 토스트 경고 트리거
           const fallbackUrl = URL.createObjectURL(blob);
           photoObject = { id: 'temp_' + Date.now(), blob: blob, objectUrl: fallbackUrl, timestamp: Date.now() };
           state.photosArray.push(photoObject);
@@ -709,7 +889,6 @@
     function saveImage(photoItem, toastObj = true) {
       if (!photoItem) return;
 
-      // 전면 카메라 촬영본 파일 저장 시의 좌우 왜곡 무결성을 위한 검증 다운로드 처리
       const a = document.createElement('a');
       a.href = photoItem.objectUrl; 
       
@@ -734,8 +913,268 @@
     // ── Custom Gallery Viewer & Swipe Slider ──
     DOM.thumbnailSlot.addEventListener('click', () => {
       if (!state.photosArray.length) return;
-      renderGalleryItems();
+      exitSelectMode(); 
+      openGalleryDetailView(state.photosArray.length - 1);
     });
+
+    function openGalleryGridView() {
+      state.galleryViewMode = 'grid';
+      DOM.galleryViewer.style.display = 'block';
+      DOM.galleryGridLayer.style.display = 'grid';
+      DOM.galleryDetailLayer.style.display = 'none';
+      
+      DOM.viewerCounter.textContent = '모든 사진';
+      DOM.viewerGrid.style.display = 'none'; 
+      DOM.viewerSelectToggle.style.display = 'block'; 
+      DOM.viewerDelete.style.display = 'none'; 
+      DOM.viewerDownload.style.display = 'none';
+
+      renderGridItems();
+    }
+
+    function renderGridItems() {
+      DOM.galleryGridLayer.innerHTML = '';
+      
+      for (let i = state.photosArray.length - 1; i >= 0; i--) {
+        const item = state.photosArray[i];
+        const gridItem = document.createElement('div');
+        gridItem.className = 'grid-item';
+        gridItem.setAttribute('data-id', item.id);
+        if (state.isSelectMode && state.selectedPhotoIds.has(item.id)) {
+          gridItem.classList.add('selected');
+        }
+        
+        const img = document.createElement('img');
+        img.src = item.objectUrl;
+        img.loading = 'lazy';
+        
+        const overlay = document.createElement('div');
+        overlay.className = 'select-overlay';
+        const badge = document.createElement('div');
+        badge.className = 'select-badge';
+        badge.innerHTML = `
+          <svg width="10" height="8" viewBox="0 0 12 10" fill="none">
+            <path d="M1 5L4.5 8.5L11 1" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        `;
+        overlay.appendChild(badge);
+        
+        gridItem.appendChild(img);
+        gridItem.appendChild(overlay);
+        DOM.galleryGridLayer.appendChild(gridItem);
+        
+        gridItem.addEventListener('click', () => {
+          if (state.isSelectMode) {
+            toggleSelectPhoto(item.id, gridItem);
+          } else {
+            openGalleryDetailView(i);
+          }
+        });
+      }
+    }
+
+    function getGridItemFromCoords(x, y) {
+      const element = document.elementFromPoint(x, y);
+      if (!element) return null;
+      return element.closest('.grid-item');
+    }
+
+    // 드래그 트랙킹 이벤트를 그리드 레이어 내부로 응집화
+    DOM.galleryGridLayer.addEventListener('mousedown', (e) => {
+      if (!state.isSelectMode) return;
+      state.isDraggingSelect = false;
+      state.draggedPhotoIds.clear();
+      
+      const item = getGridItemFromCoords(e.clientX, e.clientY);
+      if (item) {
+        const id = item.getAttribute('data-id');
+        const parsedId = isNaN(id) ? id : Number(id);
+        state.draggedPhotoIds.add(parsedId);
+      }
+    });
+
+    DOM.galleryGridLayer.addEventListener('mousemove', (e) => {
+      if (!state.isSelectMode) return;
+      if (e.buttons !== 1) return; 
+      
+      state.isDraggingSelect = true;
+      const item = getGridItemFromCoords(e.clientX, e.clientY);
+      if (item) {
+        const id = item.getAttribute('data-id');
+        const parsedId = isNaN(id) ? id : Number(id);
+        if (!state.draggedPhotoIds.has(parsedId)) {
+          state.draggedPhotoIds.add(parsedId);
+          toggleSelectPhoto(parsedId, item);
+        }
+      }
+    });
+
+    DOM.galleryGridLayer.addEventListener('mouseup', () => {
+      if (state.isDraggingSelect) {
+        setTimeout(() => { state.isDraggingSelect = false; }, 50);
+      }
+    });
+
+    DOM.galleryGridLayer.addEventListener('touchstart', (e) => {
+      if (!state.isSelectMode) return;
+      state.isDraggingSelect = false;
+      state.draggedPhotoIds.clear();
+      
+      const touch = e.touches[0];
+      const item = getGridItemFromCoords(touch.clientX, touch.clientY);
+      if (item) {
+        const id = item.getAttribute('data-id');
+        const parsedId = isNaN(id) ? id : Number(id);
+        state.draggedPhotoIds.add(parsedId);
+      }
+    }, { passive: true });
+
+    DOM.galleryGridLayer.addEventListener('touchmove', (e) => {
+      if (!state.isSelectMode) return;
+      
+      state.isDraggingSelect = true;
+      const touch = e.touches[0];
+      const item = getGridItemFromCoords(touch.clientX, touch.clientY);
+      if (item) {
+        const id = item.getAttribute('data-id');
+        const parsedId = isNaN(id) ? id : Number(id);
+        if (!state.draggedPhotoIds.has(parsedId)) {
+          state.draggedPhotoIds.add(parsedId);
+          toggleSelectPhoto(parsedId, item);
+        }
+      }
+    }, { passive: true });
+
+    DOM.galleryGridLayer.addEventListener('touchend', () => {
+      if (state.isDraggingSelect) {
+        setTimeout(() => { state.isDraggingSelect = false; }, 50);
+      }
+    }, { passive: true });
+
+    function toggleSelectPhoto(id, element) {
+      if (state.selectedPhotoIds.has(id)) {
+        state.selectedPhotoIds.delete(id);
+        element.classList.remove('selected');
+      } else {
+        state.selectedPhotoIds.add(id);
+        element.classList.add('selected');
+      }
+      updateBulkToolbarUI();
+    }
+
+    function updateBulkToolbarUI() {
+      const count = state.selectedPhotoIds.size;
+      if (count > 0) {
+        DOM.bulkDownload.textContent = `${count}장 다운로드`;
+        DOM.bulkDelete.textContent = `${count}장 삭제`;
+        DOM.bulkDownload.disabled = false;
+        DOM.bulkDelete.disabled = false;
+        DOM.bulkDownload.style.opacity = '1';
+        DOM.bulkDelete.style.opacity = '1';
+      } else {
+        DOM.bulkDownload.textContent = `선택 다운로드`;
+        DOM.bulkDelete.textContent = `선택 삭제`;
+        DOM.bulkDownload.disabled = true;
+        DOM.bulkDelete.disabled = true;
+        DOM.bulkDownload.style.opacity = '0.4';
+        DOM.bulkDelete.style.opacity = '0.4';
+      }
+    }
+
+    DOM.viewerSelectToggle.addEventListener('click', () => {
+      if (state.isSelectMode) {
+        exitSelectMode();
+      } else {
+        enterSelectMode();
+      }
+    });
+
+    function enterSelectMode() {
+      state.isSelectMode = true;
+      state.selectedPhotoIds.clear();
+      DOM.viewerSelectToggle.textContent = '취소';
+      DOM.viewerSelectToggle.classList.add('active');
+      DOM.galleryGridLayer.classList.add('select-mode-active');
+      DOM.galleryBulkToolbar.style.display = 'flex';
+      updateBulkToolbarUI();
+      renderGridItems();
+    }
+
+    function exitSelectMode() {
+      state.isSelectMode = false;
+      state.selectedPhotoIds.clear();
+      DOM.viewerSelectToggle.textContent = '선택';
+      DOM.viewerSelectToggle.classList.remove('active');
+      DOM.galleryGridLayer.classList.remove('select-mode-active');
+      DOM.galleryBulkToolbar.style.display = 'none';
+      renderGridItems();
+    }
+
+    // ── 다중 일괄 실행 액션 로직 ──
+    DOM.bulkDownload.addEventListener('click', () => {
+      if (state.selectedPhotoIds.size === 0) return;
+      
+      let targetItems = state.photosArray.filter(p => state.selectedPhotoIds.has(p.id));
+      
+      targetItems.forEach((item, idx) => {
+        setTimeout(() => {
+          saveImage(item, false);
+          if (idx === targetItems.length - 1) {
+            showToast(`${targetItems.length}장의 사진이 저장되었습니다.`);
+            exitSelectMode();
+          }
+        }, idx * 250);
+      });
+    });
+
+    DOM.bulkDelete.addEventListener('click', async () => {
+      if (state.selectedPhotoIds.size === 0) return;
+      
+      const targetIds = new Set(state.selectedPhotoIds);
+      const deletePromises = [];
+      
+      state.photosArray.forEach(item => {
+        if (targetIds.has(item.id)) {
+          if (typeof item.id === 'number') {
+            deletePromises.push(deletePhotoFromDB(item.id));
+          }
+          if (item.objectUrl) {
+            URL.revokeObjectURL(item.objectUrl);
+          }
+        }
+      });
+      
+      await Promise.all(deletePromises);
+      state.photosArray = state.photosArray.filter(p => !targetIds.has(p.id));
+      
+      if (state.photosArray.length === 0) {
+        DOM.thumbnailImg.src = '';
+        DOM.thumbnailImg.style.display = 'none';
+        DOM.galleryViewer.style.display = 'none';
+        exitSelectMode();
+        setTimeout(checkAndResumeCamera, 100);
+      } else {
+        const latestPhoto = state.photosArray[state.photosArray.length - 1];
+        DOM.thumbnailImg.src = latestPhoto.objectUrl;
+        showToast('선택한 사진들이 삭제되었습니다');
+        exitSelectMode();
+      }
+    });
+
+    function openGalleryDetailView(index) {
+      state.galleryViewMode = 'detail';
+      state.currentSlideIndex = index;
+      
+      DOM.galleryGridLayer.style.display = 'none';
+      DOM.galleryDetailLayer.style.display = 'block';
+      
+      DOM.viewerGrid.style.display = 'flex'; 
+      DOM.viewerSelectToggle.style.display = 'none'; 
+      DOM.viewerDelete.style.display = 'flex'; 
+      DOM.viewerDownload.style.display = 'flex';
+
+      renderGalleryItems();
+    }
 
     function renderGalleryItems() {
       DOM.swipeContainer.innerHTML = '';
@@ -764,8 +1203,14 @@
 
     DOM.viewerClose.addEventListener('click', () => {
       if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
+      exitSelectMode();
       DOM.galleryViewer.style.display = 'none';
       setTimeout(checkAndResumeCamera, 100);
+    });
+
+    DOM.viewerGrid.addEventListener('click', () => {
+      if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
+      openGalleryGridView();
     });
 
     DOM.viewerDownload.addEventListener('click', () => {
@@ -776,7 +1221,6 @@
       }
     });
 
-    // 갤러리 뷰어 슬라이더 내부 액티브 타겟 실시간 삭제 및 가비지 컬렉터 처리 연동
     DOM.viewerDelete.addEventListener('click', async () => {
       if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
       if (!state.photosArray.length) return;
@@ -784,32 +1228,26 @@
       const targetItem = state.photosArray[state.currentSlideIndex];
       if (!targetItem) return;
 
-      // 1. IndexedDB 영구 삭제 트랙 호출
       if (typeof targetItem.id === 'number') {
         await deletePhotoFromDB(targetItem.id);
       }
 
-      // 2. 브라우저 엔진에 할당된 런타임 Blob 메모리 누수 강제 제거 (가비지 컬렉션 유도)
       if (targetItem.objectUrl) {
         URL.revokeObjectURL(targetItem.objectUrl);
       }
 
-      // 3. 내부 상태 데이터 정렬 연쇄 처리
       state.photosArray.splice(state.currentSlideIndex, 1);
 
       if (state.photosArray.length === 0) {
-        // 모든 사진이 소멸되었을 경우의 인터페이스 다운 그레이드 복구
         DOM.thumbnailImg.src = '';
         DOM.thumbnailImg.style.display = 'none';
         DOM.galleryViewer.style.display = 'none';
         setTimeout(checkAndResumeCamera, 100);
       } else {
-        // 남은 요소가 있을 경우 인덱스 가드 및 리렌더링 진행
         if (state.currentSlideIndex >= state.photosArray.length) {
           state.currentSlideIndex = state.photosArray.length - 1;
         }
         
-        // 메인 셔터 측 썸네일 노출 갱신 연동
         const latestPhoto = state.photosArray[state.photosArray.length - 1];
         DOM.thumbnailImg.src = latestPhoto.objectUrl;
         
@@ -822,6 +1260,7 @@
       if (!state.photosArray.length) return;
       DOM.swipeContainer.style.transition = anim ? 'transform 0.3s cubic-bezier(0.16,1,0.3,1)' : 'none';
       DOM.swipeContainer.style.transform  = `translateX(${-state.currentSlideIndex * window.innerWidth}px)`;
+      
       DOM.viewerCounter.textContent = `${state.currentSlideIndex + 1} / ${state.photosArray.length}`;
     }
 
@@ -842,8 +1281,10 @@
       }
     }
 
-    // ── Gallery Gesture Core Handlers ──
+    // ── Gallery Gesture Handlers ──
     function onGalleryTouchStart(e) {
+      if (state.galleryViewMode === 'grid') return;
+
       const g = state.galleryGesture;
       if (e.touches.length === 2) {
         g.isSwiveLive = false;
@@ -868,6 +1309,8 @@
     }
 
     function onGalleryTouchMove(e) {
+      if (state.galleryViewMode === 'grid') return;
+
       const g = state.galleryGesture;
       if (g.isPinchActive && e.touches.length === 2) {
         const dist = getTouchDist(e.touches);
@@ -925,6 +1368,8 @@
     }
 
     function onGalleryTouchEnd(e) {
+      if (state.galleryViewMode === 'grid') return;
+
       const g = state.galleryGesture;
       if (g.isPinchActive) {
         if (e.touches.length < 2) g.isPinchActive = false;
@@ -957,7 +1402,6 @@
       moveSlide(true);
     }
 
-    // Gallery Viewer Event Binding
     DOM.galleryViewer.addEventListener('touchstart', onGalleryTouchStart, { passive: true });
     DOM.galleryViewer.addEventListener('touchmove', onGalleryTouchMove, { passive: true });
     DOM.galleryViewer.addEventListener('touchend', onGalleryTouchEnd, { passive: true });
