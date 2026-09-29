@@ -684,7 +684,8 @@
       overlay: {
         active: false,
         interactive: false,
-        opacityPct: 50 // 10~90
+        opacityPct: 50, // 10~90
+        loadCheckTimer: null
       },
 
       // Camera Zoom Settings
@@ -989,9 +990,23 @@
       DOM.overlayControls.classList.add('show');
       DOM.overlayBtn.classList.add('active');
       state.overlay.active = true;
+
+      // 대상 사이트가 X-Frame-Options/CSP로 삽입을 차단하면 화면엔 그냥
+      // 빈 화면만 뜨고 에러도 안 나와서, 로드가 오래 걸리면 안내를 띄움
+      clearTimeout(state.overlay.loadCheckTimer);
+      let loaded = false;
+      const onLoad = () => { loaded = true; };
+      DOM.overlayFrame.addEventListener('load', onLoad, { once: true });
+      state.overlay.loadCheckTimer = setTimeout(() => {
+        DOM.overlayFrame.removeEventListener('load', onLoad);
+        if (!loaded && state.overlay.active) {
+          showToast('이 사이트는 삽입이 차단되어 있을 수 있어요', 3000);
+        }
+      }, 4000);
     }
 
     function closeOverlay() {
+      clearTimeout(state.overlay.loadCheckTimer);
       DOM.overlayFrame.hidden = true;
       DOM.overlayFrame.src = 'about:blank';
       DOM.overlayFrame.classList.remove('interactive');
