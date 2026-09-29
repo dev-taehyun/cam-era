@@ -414,7 +414,7 @@
       width: 100%; height: 100%;
       border: 0; z-index: 20;
       background: transparent;
-      pointer-events: none; /* 기본: 카메라 제스처(핀치 줌 등) 우선 */
+      pointer-events: none;
     }
     #overlay-frame.interactive { pointer-events: auto; }
 
@@ -429,33 +429,7 @@
     #overlay-btn:active { background: rgba(255,255,255,0.22); }
     #overlay-btn.active { background: #007AFF; }
 
-    #overlay-url-bar {
-      position: fixed; top: 0; left: 0; right: 0;
-      display: none;
-      align-items: center; justify-content: center; gap: 10px;
-      z-index: 35; padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 10px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
-    }
-    #overlay-url-bar.show { display: flex; }
-
-    #overlay-url-input {
-      flex: 1; max-width: 260px;
-      background: rgba(255,255,255,0.12);
-      border: none; border-radius: 100px;
-      color: #fff; font-size: 14px;
-      padding: 9px 14px; outline: none;
-      -webkit-user-select: text; user-select: text;
-    }
-    #overlay-url-input::placeholder { color: rgba(255,255,255,0.4); }
-    #overlay-url-go, #overlay-url-cancel {
-      background: rgba(255,255,255,0.15); color: #fff; border: none;
-      border-radius: 100px; padding: 8px 16px; font-size: 13px; font-weight: 600;
-      cursor: pointer; letter-spacing: -0.1px; white-space: nowrap; flex-shrink: 0;
-    }
-    #overlay-url-go { background: #007AFF; }
-    #overlay-url-cancel { background: rgba(255,59,48,0.3); color: #FF453A; }
-
-    /* ── 오버레이 활성 중 편집/종료 — 작고 눈에 덜 띄게, 우측 상단 구석 ── */
+    /* ── 오버레이 활성 중 편집/종료 — 기존 유지 ── */
     #overlay-controls {
       position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); right: 10px;
       display: none; flex-direction: column; align-items: center; gap: 6px;
@@ -473,6 +447,22 @@
     #overlay-interact-btn:active, #overlay-close-btn:active { opacity: 0.9; }
     #overlay-interact-btn.active { background: #007AFF; opacity: 0.85; }
     #overlay-close-btn { background: rgba(255,59,48,0.25); }
+
+    /* ── 오버레이 촬영 영역 ── */
+    #overlay-shutter-zone {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 96px;
+      height: 96px;
+      z-index: 40;
+      display: none;
+      pointer-events: none;
+    }
+    #overlay-shutter-zone.show {
+      display: block;
+      pointer-events: auto;
+    }
 
     /* ── 촬영 피드백 (화면 중앙, 아주 잠깐) ── */
     #capture-flash {
@@ -494,6 +484,7 @@
   <video id="viewfinder" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
   <iframe id="overlay-frame" hidden referrerpolicy="no-referrer"></iframe>
+  <div id="overlay-shutter-zone" aria-label="촬영"></div>
 
   <div id="permission-screen">
     <div class="perm-icon">
@@ -514,12 +505,6 @@
         <path d="M8 21h10a2 2 0 0 0 2-2V9"/>
       </svg>
     </button>
-  </div>
-  <div id="overlay-url-bar">
-    <input type="text" id="overlay-url-input" inputmode="url" placeholder="https://example.com"
-      autocapitalize="off" autocorrect="off" spellcheck="false">
-    <button id="overlay-url-go">열기</button>
-    <button id="overlay-url-cancel">취소</button>
   </div>
   <div id="overlay-controls">
     <button id="overlay-interact-btn" aria-label="편집 모드 전환">
@@ -647,13 +632,10 @@
       zoomIndicator: document.getElementById('zoom-indicator'),
       overlayFrame: document.getElementById('overlay-frame'),
       overlayBtn: document.getElementById('overlay-btn'),
-      overlayUrlBar: document.getElementById('overlay-url-bar'),
-      overlayUrlInput: document.getElementById('overlay-url-input'),
-      overlayUrlGo: document.getElementById('overlay-url-go'),
-      overlayUrlCancel: document.getElementById('overlay-url-cancel'),
       overlayControls: document.getElementById('overlay-controls'),
       overlayInteractBtn: document.getElementById('overlay-interact-btn'),
       overlayCloseBtn: document.getElementById('overlay-close-btn'),
+      overlayShutterZone: document.getElementById('overlay-shutter-zone'),
       captureFlash: document.getElementById('capture-flash')
     };
 
@@ -675,7 +657,7 @@
       overlay: {
         active: false,
         interactive: false,
-        opacityPct: 100, // 상수 — 슬라이더 없이 고정
+        opacityPct: 80,
         loadCheckTimer: null
       },
 
@@ -975,13 +957,13 @@
       DOM.overlayFrame.src = url;
       DOM.overlayFrame.hidden = false;
       applyOverlayOpacity();
-      DOM.overlayUrlBar.classList.remove('show');
       DOM.overlayControls.classList.add('show');
       DOM.overlayBtn.classList.add('active');
+      DOM.topBar.style.display = 'none';
+      DOM.bottomBar.style.display = 'none';
+      DOM.overlayShutterZone.classList.add('show');
       state.overlay.active = true;
 
-      // 대상 사이트가 X-Frame-Options/CSP로 삽입을 차단하면 화면엔 그냥
-      // 빈 화면만 뜨고 에러도 안 나와서, 로드가 오래 걸리면 안내를 띄움
       clearTimeout(state.overlay.loadCheckTimer);
       let loaded = false;
       const onLoad = () => { loaded = true; };
@@ -999,52 +981,36 @@
       DOM.overlayFrame.hidden = true;
       DOM.overlayFrame.src = 'about:blank';
       DOM.overlayFrame.classList.remove('interactive');
-      DOM.overlayUrlBar.classList.remove('show');
       DOM.overlayControls.classList.remove('show');
       DOM.overlayBtn.classList.remove('active');
       DOM.overlayInteractBtn.classList.remove('active');
+      DOM.overlayShutterZone.classList.remove('show');
+      DOM.topBar.style.display = 'flex';
+      DOM.bottomBar.style.display = 'flex';
       state.overlay.active = false;
       state.overlay.interactive = false;
     }
 
-    // 오버레이 버튼: 활성 중이면 닫기, 아니면 URL 입력창 열기 (native prompt는 사용 안 함 —
-    // 모달이 메인 스레드를 막아 영상이 멈춰 보이는 문제가 있었음)
+    // 기본 오버레이 대상 — 버튼 누르면 이 주소가 바로 열림
+    const DEFAULT_OVERLAY_URL = 'https://horaeng.com/wp-content/uploads/2027%ED%95%99%EB%85%84%EB%8F%84-9%EC%9B%94-%EB%AA%A8%EC%9D%98%ED%8F%89%EA%B0%80-%EC%82%AC%ED%9A%8C%EB%AC%B8%ED%99%94-%EB%AC%B8%EC%A0%9C.pdf';
+
+    // PDF는 서버가 content-disposition: attachment로 강제 다운로드 처리하는
+    // 경우가 많아 iframe에서 안 뜰 수 있음 → Google Docs Viewer로 우회
+    function resolveOverlayUrl(rawUrl) {
+      const parsed = new URL(rawUrl);
+      if (/\.pdf($|\?)/i.test(parsed.pathname)) {
+        return 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(parsed.href);
+      }
+      return parsed.href;
+    }
+
+    // 오버레이 버튼: 활성 중이면 닫기, 아니면 기본 주소를 바로 오버레이로 엶
     DOM.overlayBtn.addEventListener('click', () => {
       if (state.overlay.active) {
         closeOverlay();
         return;
       }
-      DOM.overlayUrlInput.value = '';
-      DOM.overlayUrlBar.classList.add('show');
-      DOM.overlayUrlInput.focus();
-    });
-
-    function tryOpenOverlayFromInput() {
-      let raw = DOM.overlayUrlInput.value.trim();
-      if (!raw) return;
-      if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
-      try {
-        const parsed = new URL(raw);
-        // PDF는 서버가 content-disposition: attachment로 강제 다운로드 처리하는
-        // 경우가 많아 iframe에서 안 뜰 수 있음 → Google Docs Viewer로 우회
-        let finalUrl = parsed.href;
-        if (/\.pdf($|\?)/i.test(parsed.pathname)) {
-          finalUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(parsed.href);
-        }
-        openOverlay(finalUrl);
-        DOM.overlayUrlInput.blur();
-      } catch (_) {
-        showToast('올바른 웹페이지 주소가 아니에요');
-      }
-    }
-
-    DOM.overlayUrlGo.addEventListener('click', tryOpenOverlayFromInput);
-    DOM.overlayUrlInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') tryOpenOverlayFromInput();
-    });
-    DOM.overlayUrlCancel.addEventListener('click', () => {
-      DOM.overlayUrlBar.classList.remove('show');
-      DOM.overlayUrlInput.blur();
+      openOverlay(resolveOverlayUrl(DEFAULT_OVERLAY_URL));
     });
 
     DOM.overlayInteractBtn.addEventListener('click', () => {
@@ -1054,6 +1020,12 @@
     });
 
     DOM.overlayCloseBtn.addEventListener('click', closeOverlay);
+
+    DOM.overlayShutterZone.addEventListener('pointerup', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      capturePhoto();
+    });
 
     // ── 촬영 피드백 (화면 중앙, 0.3초 스피너) ──
     function showCaptureFeedback() {
@@ -1204,7 +1176,6 @@
       return element.closest('.grid-item');
     }
 
-    // 드래그 트랙킹 이벤트를 그리드 레이어 내부로 응집화
     DOM.galleryGridLayer.addEventListener('mousedown', (e) => {
       if (!state.isSelectMode) return;
       state.isDraggingSelect = false;
