@@ -412,15 +412,14 @@
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ── Overlay (다른 웹페이지를 뷰파인더 위에 반투명하게 표시) ── */
+    /* ── Overlay ── */
     #overlay-frame {
       position: fixed; inset: 0;
       width: 100%; height: 100%;
       border: 0; z-index: 20;
       background: transparent;
-      pointer-events: none;
+      pointer-events: auto;
     }
-    #overlay-frame.interactive { pointer-events: auto; }
 
     #overlay-btn {
       width: 40px; height: 40px; border-radius: 50%;
@@ -432,6 +431,34 @@
     }
     #overlay-btn:active { background: rgba(255,255,255,0.22); }
     #overlay-btn.active { background: #007AFF; }
+
+    /* ── 오버레이 카메라 줌 영역 ── */
+    #overlay-camera-zone-left,
+    #overlay-camera-zone-right {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      z-index: 25;
+      display: none;
+      pointer-events: none;
+      touch-action: none;
+    }
+
+    #overlay-camera-zone-left {
+      left: 0;
+      width: max(0px, calc((100vw - min(100vw, 70.71vh)) / 2));
+    }
+
+    #overlay-camera-zone-right {
+      right: 0;
+      width: max(0px, calc((100vw - min(100vw, 70.71vh)) / 2));
+    }
+
+    #overlay-camera-zone-left.show,
+    #overlay-camera-zone-right.show {
+      display: block;
+      pointer-events: auto;
+    }
 
     /* ── 오버레이 촬영 영역 ── */
     #overlay-shutter-zone {
@@ -468,7 +495,12 @@
 
   <video id="viewfinder" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
+
   <iframe id="overlay-frame" hidden referrerpolicy="no-referrer"></iframe>
+
+  <div id="overlay-camera-zone-left"></div>
+  <div id="overlay-camera-zone-right"></div>
+
   <div id="overlay-shutter-zone" aria-label="촬영"></div>
 
   <div id="permission-screen">
@@ -606,6 +638,8 @@
       zoomIndicator: document.getElementById('zoom-indicator'),
       overlayFrame: document.getElementById('overlay-frame'),
       overlayBtn: document.getElementById('overlay-btn'),
+      overlayCameraZoneLeft: document.getElementById('overlay-camera-zone-left'),
+      overlayCameraZoneRight: document.getElementById('overlay-camera-zone-right'),
       overlayShutterZone: document.getElementById('overlay-shutter-zone'),
       captureFlash: document.getElementById('capture-flash')
     };
@@ -624,7 +658,7 @@
       draggedPhotoIds: new Set(),
       isDraggingSelect: false,
 
-      // Overlay (다른 웹페이지를 뷰파인더 위에 표시)
+      // Overlay
       overlay: {
         active: false,
         interactive: false,
@@ -880,7 +914,14 @@
     }
 
     document.addEventListener('touchstart', e => {
-      if (e.touches.length === 2 && state.zoom.isSupported && DOM.galleryViewer.style.display !== 'block') {
+      if (
+        e.touches.length === 2 &&
+        state.zoom.isSupported &&
+        DOM.galleryViewer.style.display !== 'block' &&
+        (!state.overlay.active ||
+          e.target === DOM.overlayCameraZoneLeft ||
+          e.target === DOM.overlayCameraZoneRight)
+      ) {
         state.cameraGesture.isPinchActive = true;
         state.cameraGesture.startDist     = getTouchDist(e.touches);
         state.cameraGesture.startZoom     = state.zoom.current;
@@ -919,7 +960,7 @@
       state.zoom.hideTimer = setTimeout(() => DOM.zoomIndicator.classList.remove('visible'), 1200);
     }
 
-    // ── Overlay (다른 웹페이지를 뷰파인더 위에 반투명하게 표시) ──
+    // ── Overlay ──
     function applyOverlayOpacity() {
       DOM.overlayFrame.style.opacity = state.overlay.opacityPct / 100;
     }
@@ -927,20 +968,31 @@
     function openOverlay(url) {
       DOM.overlayFrame.src = url;
       DOM.overlayFrame.hidden = false;
+
       DOM.viewfinder.classList.add('overlay-hidden');
+
       applyOverlayOpacity();
+
       DOM.overlayBtn.classList.add('active');
       DOM.topBar.style.display = 'none';
       DOM.bottomBar.style.display = 'none';
+
+      DOM.overlayCameraZoneLeft.classList.add('show');
+      DOM.overlayCameraZoneRight.classList.add('show');
+
       DOM.overlayShutterZone.classList.add('show');
+
       state.overlay.active = true;
 
       clearTimeout(state.overlay.loadCheckTimer);
       let loaded = false;
       const onLoad = () => { loaded = true; };
+
       DOM.overlayFrame.addEventListener('load', onLoad, { once: true });
+
       state.overlay.loadCheckTimer = setTimeout(() => {
         DOM.overlayFrame.removeEventListener('load', onLoad);
+
         if (!loaded && state.overlay.active) {
           showToast('이 사이트는 삽입이 차단되어 있을 수 있어요', 3000);
         }
@@ -949,12 +1001,19 @@
 
     function closeOverlay() {
       clearTimeout(state.overlay.loadCheckTimer);
+
       DOM.overlayFrame.hidden = true;
       DOM.overlayFrame.src = 'about:blank';
-      DOM.overlayFrame.classList.remove('interactive');
+
       DOM.viewfinder.classList.remove('overlay-hidden');
+
       DOM.overlayBtn.classList.remove('active');
+
+      DOM.overlayCameraZoneLeft.classList.remove('show');
+      DOM.overlayCameraZoneRight.classList.remove('show');
+
       DOM.overlayShutterZone.classList.remove('show');
+
       state.overlay.active = false;
       state.overlay.interactive = false;
 
@@ -964,16 +1023,18 @@
       }
     }
 
-    // 기본 오버레이 대상 — 버튼 누르면 이 주소가 바로 열림
+    // 기본 오버레이 대상
     const DEFAULT_OVERLAY_URL = 'https://horaeng.com/wp-content/uploads/2027%ED%95%99%EB%85%84%EB%8F%84-9%EC%9B%94-%EB%AA%A8%EC%9D%98%ED%8F%89%EA%B0%80-%EC%82%AC%ED%9A%8C%EB%AC%B8%ED%99%94-%EB%AC%B8%EC%A0%9C.pdf';
 
     // PDF는 서버가 content-disposition: attachment로 강제 다운로드 처리하는
     // 경우가 많아 iframe에서 안 뜰 수 있음 → Google Docs Viewer로 우회
     function resolveOverlayUrl(rawUrl) {
       const parsed = new URL(rawUrl);
+
       if (/\.pdf($|\?)/i.test(parsed.pathname)) {
         return 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(parsed.href);
       }
+
       return parsed.href;
     }
 
@@ -983,6 +1044,7 @@
         closeOverlay();
         return;
       }
+
       openOverlay(resolveOverlayUrl(DEFAULT_OVERLAY_URL));
     });
 
@@ -992,7 +1054,7 @@
       capturePhoto();
     });
 
-    // ── 촬영 피드백 (화면 중앙, 0.3초 스피너) ──
+    // ── 촬영 피드백 ──
     function showCaptureFeedback() {
       DOM.captureFlash.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-9-9"/></svg>`;
       DOM.captureFlash.classList.add('show');
@@ -1007,12 +1069,14 @@
 
       const vw = DOM.viewfinder.videoWidth;
       const vh = DOM.viewfinder.videoHeight;
+
       if (!vw || !vh) return;
 
       DOM.canvas.width = vw; 
       DOM.canvas.height = vh;
 
       const ctx = DOM.canvas.getContext('2d');
+
       if (state.facingMode === 'user') { 
         ctx.translate(vw, 0); 
         ctx.scale(-1, 1); 
@@ -1031,7 +1095,14 @@
           state.photosArray.push(photoObject);
         } else {
           const fallbackUrl = URL.createObjectURL(blob);
-          photoObject = { id: 'temp_' + Date.now(), blob: blob, objectUrl: fallbackUrl, timestamp: Date.now() };
+
+          photoObject = {
+            id: 'temp_' + Date.now(),
+            blob: blob,
+            objectUrl: fallbackUrl,
+            timestamp: Date.now()
+          };
+
           state.photosArray.push(photoObject);
           showToast('⚠️ 저장 공간 부족으로 임시 상태로만 유지됩니다.', 3000);
         }
@@ -1062,19 +1133,26 @@
       document.body.removeChild(a);
 
       if (toastObj) showToast('저장되었습니다');
+
       setTimeout(checkAndResumeCamera, 300);
     }
 
     // ── Camera Flip ──
     DOM.flipBtn.addEventListener('click', () => {
       DOM.flipBtn.classList.add('spinning');
+
       setTimeout(() => DOM.flipBtn.classList.remove('spinning'), 350);
-      startCamera(state.facingMode === 'environment' ? 'user' : 'environment', false);
+
+      startCamera(
+        state.facingMode === 'environment' ? 'user' : 'environment',
+        false
+      );
     });
 
     // ── Custom Gallery Viewer & Swipe Slider ──
     DOM.thumbnailSlot.addEventListener('click', () => {
       if (!state.photosArray.length) return;
+
       exitSelectMode(); 
       openGalleryDetailView(state.photosArray.length - 1);
     });
@@ -1099,9 +1177,11 @@
 
       for (let i = state.photosArray.length - 1; i >= 0; i--) {
         const item = state.photosArray[i];
+
         const gridItem = document.createElement('div');
         gridItem.className = 'grid-item';
         gridItem.setAttribute('data-id', item.id);
+
         if (state.isSelectMode && state.selectedPhotoIds.has(item.id)) {
           gridItem.classList.add('selected');
         }
@@ -1112,13 +1192,16 @@
 
         const overlay = document.createElement('div');
         overlay.className = 'select-overlay';
+
         const badge = document.createElement('div');
         badge.className = 'select-badge';
+
         badge.innerHTML = `
           <svg width="10" height="8" viewBox="0 0 12 10" fill="none">
             <path d="M1 5L4.5 8.5L11 1" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         `;
+
         overlay.appendChild(badge);
 
         gridItem.appendChild(img);
@@ -1137,19 +1220,24 @@
 
     function getGridItemFromCoords(x, y) {
       const element = document.elementFromPoint(x, y);
+
       if (!element) return null;
+
       return element.closest('.grid-item');
     }
 
     DOM.galleryGridLayer.addEventListener('mousedown', (e) => {
       if (!state.isSelectMode) return;
+
       state.isDraggingSelect = false;
       state.draggedPhotoIds.clear();
 
       const item = getGridItemFromCoords(e.clientX, e.clientY);
+
       if (item) {
         const id = item.getAttribute('data-id');
         const parsedId = isNaN(id) ? id : Number(id);
+
         state.draggedPhotoIds.add(parsedId);
       }
     });
@@ -1159,10 +1247,13 @@
       if (e.buttons !== 1) return; 
 
       state.isDraggingSelect = true;
+
       const item = getGridItemFromCoords(e.clientX, e.clientY);
+
       if (item) {
         const id = item.getAttribute('data-id');
         const parsedId = isNaN(id) ? id : Number(id);
+
         if (!state.draggedPhotoIds.has(parsedId)) {
           state.draggedPhotoIds.add(parsedId);
           toggleSelectPhoto(parsedId, item);
@@ -1172,20 +1263,25 @@
 
     DOM.galleryGridLayer.addEventListener('mouseup', () => {
       if (state.isDraggingSelect) {
-        setTimeout(() => { state.isDraggingSelect = false; }, 50);
+        setTimeout(() => {
+          state.isDraggingSelect = false;
+        }, 50);
       }
     });
 
     DOM.galleryGridLayer.addEventListener('touchstart', (e) => {
       if (!state.isSelectMode) return;
+
       state.isDraggingSelect = false;
       state.draggedPhotoIds.clear();
 
       const touch = e.touches[0];
       const item = getGridItemFromCoords(touch.clientX, touch.clientY);
+
       if (item) {
         const id = item.getAttribute('data-id');
         const parsedId = isNaN(id) ? id : Number(id);
+
         state.draggedPhotoIds.add(parsedId);
       }
     }, { passive: true });
@@ -1194,11 +1290,14 @@
       if (!state.isSelectMode) return;
 
       state.isDraggingSelect = true;
+
       const touch = e.touches[0];
       const item = getGridItemFromCoords(touch.clientX, touch.clientY);
+
       if (item) {
         const id = item.getAttribute('data-id');
         const parsedId = isNaN(id) ? id : Number(id);
+
         if (!state.draggedPhotoIds.has(parsedId)) {
           state.draggedPhotoIds.add(parsedId);
           toggleSelectPhoto(parsedId, item);
@@ -1208,7 +1307,9 @@
 
     DOM.galleryGridLayer.addEventListener('touchend', () => {
       if (state.isDraggingSelect) {
-        setTimeout(() => { state.isDraggingSelect = false; }, 50);
+        setTimeout(() => {
+          state.isDraggingSelect = false;
+        }, 50);
       }
     }, { passive: true });
 
@@ -1220,11 +1321,13 @@
         state.selectedPhotoIds.add(id);
         element.classList.add('selected');
       }
+
       updateBulkToolbarUI();
     }
 
     function updateBulkToolbarUI() {
       const count = state.selectedPhotoIds.size;
+
       if (count > 0) {
         DOM.bulkDownload.textContent = `${count}장 다운로드`;
         DOM.bulkDelete.textContent = `${count}장 삭제`;
@@ -1253,10 +1356,12 @@
     function enterSelectMode() {
       state.isSelectMode = true;
       state.selectedPhotoIds.clear();
+
       DOM.viewerSelectToggle.textContent = '취소';
       DOM.viewerSelectToggle.classList.add('active');
       DOM.galleryGridLayer.classList.add('select-mode-active');
       DOM.galleryBulkToolbar.style.display = 'flex';
+
       updateBulkToolbarUI();
       renderGridItems();
     }
@@ -1264,10 +1369,12 @@
     function exitSelectMode() {
       state.isSelectMode = false;
       state.selectedPhotoIds.clear();
+
       DOM.viewerSelectToggle.textContent = '선택';
       DOM.viewerSelectToggle.classList.remove('active');
       DOM.galleryGridLayer.classList.remove('select-mode-active');
       DOM.galleryBulkToolbar.style.display = 'none';
+
       renderGridItems();
     }
 
@@ -1275,11 +1382,14 @@
     DOM.bulkDownload.addEventListener('click', () => {
       if (state.selectedPhotoIds.size === 0) return;
 
-      let targetItems = state.photosArray.filter(p => state.selectedPhotoIds.has(p.id));
+      let targetItems = state.photosArray.filter(
+        p => state.selectedPhotoIds.has(p.id)
+      );
 
       targetItems.forEach((item, idx) => {
         setTimeout(() => {
           saveImage(item, false);
+
           if (idx === targetItems.length - 1) {
             showToast(`${targetItems.length}장의 사진이 저장되었습니다.`);
             exitSelectMode();
@@ -1299,6 +1409,7 @@
           if (typeof item.id === 'number') {
             deletePromises.push(deletePhotoFromDB(item.id));
           }
+
           if (item.objectUrl) {
             URL.revokeObjectURL(item.objectUrl);
           }
@@ -1306,18 +1417,26 @@
       });
 
       await Promise.all(deletePromises);
-      state.photosArray = state.photosArray.filter(p => !targetIds.has(p.id));
+
+      state.photosArray = state.photosArray.filter(
+        p => !targetIds.has(p.id)
+      );
 
       if (state.photosArray.length === 0) {
         DOM.thumbnailImg.src = '';
         DOM.thumbnailImg.style.display = 'none';
         DOM.galleryViewer.style.display = 'none';
+
         exitSelectMode();
+
         setTimeout(checkAndResumeCamera, 100);
       } else {
         const latestPhoto = state.photosArray[state.photosArray.length - 1];
+
         DOM.thumbnailImg.src = latestPhoto.objectUrl;
+
         showToast('선택한 사진들이 삭제되었습니다');
+
         exitSelectMode();
       }
     });
@@ -1339,11 +1458,14 @@
 
     function renderGalleryItems() {
       DOM.swipeContainer.innerHTML = '';
+
       state.photosArray.forEach(item => {
         const slide = document.createElement('div'); 
         slide.className = 'swipe-slide';
+
         const img = document.createElement('img'); 
         img.src = item.objectUrl;
+
         slide.appendChild(img); 
         DOM.swipeContainer.appendChild(slide);
       });
@@ -1351,32 +1473,52 @@
       if (state.currentSlideIndex >= state.photosArray.length) {
         state.currentSlideIndex = state.photosArray.length - 1;
       }
-      if (state.currentSlideIndex < 0) state.currentSlideIndex = 0;
+
+      if (state.currentSlideIndex < 0) {
+        state.currentSlideIndex = 0;
+      }
 
       DOM.galleryViewer.style.display = 'block';
       DOM.viewerHeader.classList.remove('ui-hidden'); 
+
       resetSlideZoom(); 
+
       setTimeout(() => moveSlide(false), 30);
     }
 
-    DOM.viewerHeader.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-    DOM.viewerHeader.addEventListener('touchend', (e) => e.stopPropagation(), { passive: true });
+    DOM.viewerHeader.addEventListener(
+      'touchstart',
+      (e) => e.stopPropagation(),
+      { passive: true }
+    );
+
+    DOM.viewerHeader.addEventListener(
+      'touchend',
+      (e) => e.stopPropagation(),
+      { passive: true }
+    );
 
     DOM.viewerClose.addEventListener('click', () => {
       if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
+
       exitSelectMode();
+
       DOM.galleryViewer.style.display = 'none';
+
       setTimeout(checkAndResumeCamera, 100);
     });
 
     DOM.viewerGrid.addEventListener('click', () => {
       if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
+
       openGalleryGridView();
     });
 
     DOM.viewerDownload.addEventListener('click', () => {
       if (DOM.viewerHeader.classList.contains('ui-hidden')) return;
+
       const currentItem = state.photosArray[state.currentSlideIndex];
+
       if (currentItem) {
         saveImage(currentItem, true);
       }
@@ -1387,6 +1529,7 @@
       if (!state.photosArray.length) return;
 
       const targetItem = state.photosArray[state.currentSlideIndex];
+
       if (!targetItem) return;
 
       if (typeof targetItem.id === 'number') {
@@ -1403,6 +1546,7 @@
         DOM.thumbnailImg.src = '';
         DOM.thumbnailImg.style.display = 'none';
         DOM.galleryViewer.style.display = 'none';
+
         setTimeout(checkAndResumeCamera, 100);
       } else {
         if (state.currentSlideIndex >= state.photosArray.length) {
@@ -1410,35 +1554,50 @@
         }
 
         const latestPhoto = state.photosArray[state.photosArray.length - 1];
+
         DOM.thumbnailImg.src = latestPhoto.objectUrl;
 
         renderGalleryItems();
+
         showToast('삭제되었습니다');
       }
     });
 
     function moveSlide(anim = true) {
       if (!state.photosArray.length) return;
-      DOM.swipeContainer.style.transition = anim ? 'transform 0.3s cubic-bezier(0.16,1,0.3,1)' : 'none';
-      DOM.swipeContainer.style.transform  = `translateX(${-state.currentSlideIndex * window.innerWidth}px)`;
 
-      DOM.viewerCounter.textContent = `${state.currentSlideIndex + 1} / ${state.photosArray.length}`;
+      DOM.swipeContainer.style.transition =
+        anim
+          ? 'transform 0.3s cubic-bezier(0.16,1,0.3,1)'
+          : 'none';
+
+      DOM.swipeContainer.style.transform =
+        `translateX(${-state.currentSlideIndex * window.innerWidth}px)`;
+
+      DOM.viewerCounter.textContent =
+        `${state.currentSlideIndex + 1} / ${state.photosArray.length}`;
     }
 
     function resetSlideZoom() {
       state.galleryGesture.zoom = 1.0;
       state.galleryGesture.panX = 0;
       state.galleryGesture.panY = 0;
+
       const imgs = DOM.swipeContainer.querySelectorAll('.swipe-slide img');
+
       imgs.forEach(img => {
         img.style.transform = 'translate(0px, 0px) scale(1)';
       });
     }
 
     function updateCurrentImageTransform() {
-      const currentImg = DOM.swipeContainer.children[state.currentSlideIndex]?.querySelector('img');
+      const currentImg =
+        DOM.swipeContainer.children[state.currentSlideIndex]
+        ?.querySelector('img');
+
       if (currentImg) {
-        currentImg.style.transform = `translate(${state.galleryGesture.panX}px, ${state.galleryGesture.panY}px) scale(${state.galleryGesture.zoom})`;
+        currentImg.style.transform =
+          `translate(${state.galleryGesture.panX}px, ${state.galleryGesture.panY}px) scale(${state.galleryGesture.zoom})`;
       }
     }
 
@@ -1447,17 +1606,22 @@
       if (state.galleryViewMode === 'grid') return;
 
       const g = state.galleryGesture;
+
       if (e.touches.length === 2) {
         g.isSwiveLive = false;
         g.isPinchActive = true;
         g.startDist = getTouchDist(e.touches);
         g.startZoom = g.zoom;
 
-        g.pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        g.pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        g.pinchCenterX =
+          (e.touches[0].clientX + e.touches[1].clientX) / 2;
+
+        g.pinchCenterY =
+          (e.touches[0].clientY + e.touches[1].clientY) / 2;
 
         g.startPanX = g.panX;
         g.startPanY = g.panY;
+
       } else if (e.touches.length === 1) { 
         g.swX = e.touches[0].clientX; 
         g.swY = e.touches[0].clientY; 
@@ -1465,6 +1629,7 @@
         g.startPanY = g.panY;
         g.swT = Date.now(); 
         g.isSwiveLive = true; 
+
         DOM.swipeContainer.style.transition = 'none'; 
       }
     }
@@ -1473,126 +1638,218 @@
       if (state.galleryViewMode === 'grid') return;
 
       const g = state.galleryGesture;
+
       if (g.isPinchActive && e.touches.length === 2) {
         const dist = getTouchDist(e.touches);
         const ratio = dist / g.startDist;
-        const nextZoom = Math.max(1.0, Math.min(4.0, g.startZoom * ratio));
+
+        const nextZoom =
+          Math.max(1.0, Math.min(4.0, g.startZoom * ratio));
 
         if (nextZoom !== g.zoom) {
           const viewWidth = window.innerWidth;
           const viewHeight = window.innerHeight;
+
           const originX = viewWidth / 2;
           const originY = viewHeight / 2;
 
           const targetX = g.pinchCenterX - originX;
           const targetY = g.pinchCenterY - originY;
 
-          let rawPanX = targetX - (targetX - g.startPanX) * (nextZoom / g.startZoom);
-          let rawPanY = targetY - (targetY - g.startPanY) * (nextZoom / g.startZoom);
+          let rawPanX =
+            targetX -
+            (targetX - g.startPanX) *
+            (nextZoom / g.startZoom);
+
+          let rawPanY =
+            targetY -
+            (targetY - g.startPanY) *
+            (nextZoom / g.startZoom);
 
           g.zoom = nextZoom;
 
-          const maxX = Math.max(0, (viewWidth * g.zoom - viewWidth) / 2);
-          const maxY = Math.max(0, (viewHeight * g.zoom - viewHeight) / 2);
+          const maxX =
+            Math.max(0, (viewWidth * g.zoom - viewWidth) / 2);
 
-          g.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
-          g.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
+          const maxY =
+            Math.max(0, (viewHeight * g.zoom - viewHeight) / 2);
+
+          g.panX =
+            Math.max(-maxX, Math.min(maxX, rawPanX));
+
+          g.panY =
+            Math.max(-maxY, Math.min(maxY, rawPanY));
 
           if (g.zoom <= 1.0) {
             g.panX = 0;
             g.panY = 0;
           }
+
           updateCurrentImageTransform();
         }
+
         return;
       }
 
       if (!g.isSwiveLive || e.touches.length !== 1) return;
 
       if (g.zoom > 1.0) {
-        let rawPanX = g.startPanX + (e.touches[0].clientX - g.swX);
-        let rawPanY = g.startPanY + (e.touches[0].clientY - g.swY);
+        let rawPanX =
+          g.startPanX +
+          (e.touches[0].clientX - g.swX);
+
+        let rawPanY =
+          g.startPanY +
+          (e.touches[0].clientY - g.swY);
 
         const viewWidth = window.innerWidth;
         const viewHeight = window.innerHeight;
-        const maxX = Math.max(0, (viewWidth * g.zoom - viewWidth) / 2);
-        const maxY = Math.max(0, (viewHeight * g.zoom - viewHeight) / 2);
 
-        g.panX = Math.max(-maxX, Math.min(maxX, rawPanX));
-        g.panY = Math.max(-maxY, Math.min(maxY, rawPanY));
+        const maxX =
+          Math.max(0, (viewWidth * g.zoom - viewWidth) / 2);
+
+        const maxY =
+          Math.max(0, (viewHeight * g.zoom - viewHeight) / 2);
+
+        g.panX =
+          Math.max(-maxX, Math.min(maxX, rawPanX));
+
+        g.panY =
+          Math.max(-maxY, Math.min(maxY, rawPanY));
 
         updateCurrentImageTransform();
+
         return;
       }
 
-      DOM.swipeContainer.style.transform = `translateX(${-state.currentSlideIndex * window.innerWidth + e.touches[0].clientX - g.swX}px)`;
+      DOM.swipeContainer.style.transform =
+        `translateX(${-state.currentSlideIndex * window.innerWidth + e.touches[0].clientX - g.swX}px)`;
     }
 
     function onGalleryTouchEnd(e) {
       if (state.galleryViewMode === 'grid') return;
 
       const g = state.galleryGesture;
+
       if (g.isPinchActive) {
-        if (e.touches.length < 2) g.isPinchActive = false;
+        if (e.touches.length < 2) {
+          g.isPinchActive = false;
+        }
+
         return;
       }
 
       if (!g.isSwiveLive) return; 
+
       g.isSwiveLive = false;
 
-      const dx = e.changedTouches[0].clientX - g.swX;
-      const dy = e.changedTouches[0].clientY - g.swY;
-      const dt = Date.now() - g.swT;
-      const speed = Math.abs(dx) / Math.max(dt, 1);
+      const dx =
+        e.changedTouches[0].clientX - g.swX;
+
+      const dy =
+        e.changedTouches[0].clientY - g.swY;
+
+      const dt =
+        Date.now() - g.swT;
+
+      const speed =
+        Math.abs(dx) / Math.max(dt, 1);
+
       const viewWidth = window.innerWidth;
 
-      if (Math.abs(dx) < 5 && Math.abs(dy) < 5 && dt < 250) {
+      if (
+        Math.abs(dx) < 5 &&
+        Math.abs(dy) < 5 &&
+        dt < 250
+      ) {
         DOM.viewerHeader.classList.toggle('ui-hidden');
         return;
       }
 
       if (g.zoom > 1.0) return;
 
-      if ((dx < -viewWidth * 0.3 || (dx < -20 && speed > 0.5)) && state.currentSlideIndex < state.photosArray.length - 1) {
+      if (
+        (dx < -viewWidth * 0.3 ||
+          (dx < -20 && speed > 0.5)) &&
+        state.currentSlideIndex < state.photosArray.length - 1
+      ) {
         state.currentSlideIndex++;
         resetSlideZoom();
-      } else if ((dx > viewWidth * 0.3 || (dx > 20 && speed > 0.5)) && state.currentSlideIndex > 0) {
+
+      } else if (
+        (dx > viewWidth * 0.3 ||
+          (dx > 20 && speed > 0.5)) &&
+        state.currentSlideIndex > 0
+      ) {
         state.currentSlideIndex--;
         resetSlideZoom();
       }
+
       moveSlide(true);
     }
 
-    DOM.galleryViewer.addEventListener('touchstart', onGalleryTouchStart, { passive: true });
-    DOM.galleryViewer.addEventListener('touchmove', onGalleryTouchMove, { passive: true });
-    DOM.galleryViewer.addEventListener('touchend', onGalleryTouchEnd, { passive: true });
+    DOM.galleryViewer.addEventListener(
+      'touchstart',
+      onGalleryTouchStart,
+      { passive: true }
+    );
+
+    DOM.galleryViewer.addEventListener(
+      'touchmove',
+      onGalleryTouchMove,
+      { passive: true }
+    );
+
+    DOM.galleryViewer.addEventListener(
+      'touchend',
+      onGalleryTouchEnd,
+      { passive: true }
+    );
 
     // ── Permission Setup ──
     function showPermScreen(msg) {
       DOM.permScreen.style.display = 'flex';
       DOM.topBar.style.display = 'none';
       DOM.bottomBar.style.display = 'none';
+
       closeOverlay();
-      if (msg) DOM.permDesc.textContent = msg;
+
+      if (msg) {
+        DOM.permDesc.textContent = msg;
+      }
     }
 
     function handleCameraError(err) {
       const errorMessages = { 
-        NotAllowedError: '카메라 권한이 거부되었습니다.\n브라우저 설정에서 카메라 접근을 허용해 주세요.', 
-        NotFoundError: '사용 가능한 카메라를 찾을 수 없습니다.', 
-        NotReadableError: '카메라가 다른 앱에서 사용 중입니다.' 
+        NotAllowedError:
+          '카메라 권한이 거부되었습니다.\n브라우저 설정에서 카메라 접근을 허용해 주세요.', 
+        NotFoundError:
+          '사용 가능한 카메라를 찾을 수 없습니다.', 
+        NotReadableError:
+          '카메라가 다른 앱에서 사용 중입니다.' 
       };
-      showPermScreen(errorMessages[err.name] || '카메라를 열 수 없습니다.');
+
+      showPermScreen(
+        errorMessages[err.name] || '카메라를 열 수 없습니다.'
+      );
     }
 
-    DOM.openBtn.addEventListener('click', () => startCamera(state.facingMode, false));
+    DOM.openBtn.addEventListener(
+      'click',
+      () => startCamera(state.facingMode, false)
+    );
 
     // ── Toast System ──
     function showToast(msg, duration = 1800) {
       clearTimeout(state.toastTimer);
+
       DOM.toast.textContent = msg; 
       DOM.toast.classList.add('show');
-      state.toastTimer = setTimeout(() => DOM.toast.classList.remove('show'), duration);
+
+      state.toastTimer = setTimeout(
+        () => DOM.toast.classList.remove('show'),
+        duration
+      );
     }
 
     // ── Background Lifecycle Recovery ──
@@ -1608,20 +1865,29 @@
         await initDB();
 
         const savedPhotos = await loadPhotosFromDB();
+
         if (savedPhotos && savedPhotos.length > 0) {
           state.photosArray = savedPhotos;
-          DOM.thumbnailImg.src = savedPhotos[savedPhotos.length - 1].objectUrl;
+
+          DOM.thumbnailImg.src =
+            savedPhotos[savedPhotos.length - 1].objectUrl;
+
           DOM.thumbnailImg.style.display = 'block';
         }
+
       } catch (err) {
         console.error('초기화 트랙 예외 발생:', err);
+
       } finally {
         startCamera(state.facingMode, true);
       }
     }
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initApp);
+      document.addEventListener(
+        'DOMContentLoaded',
+        initApp
+      );
     } else {
       initApp();
     }
