@@ -1035,7 +1035,13 @@
       if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
       try {
         const parsed = new URL(raw);
-        openOverlay(parsed.href);
+        // PDF는 서버가 content-disposition: attachment로 강제 다운로드 처리하는
+        // 경우가 많아 iframe에서 안 뜰 수 있음 → Google Docs Viewer로 우회
+        let finalUrl = parsed.href;
+        if (/\.pdf($|\?)/i.test(parsed.pathname)) {
+          finalUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(parsed.href);
+        }
+        openOverlay(finalUrl);
         DOM.overlayUrlInput.blur();
       } catch (_) {
         showToast('올바른 웹페이지 주소가 아니에요');
