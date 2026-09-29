@@ -429,23 +429,56 @@
     #overlay-btn:active { background: rgba(255,255,255,0.22); }
     #overlay-btn.active { background: #007AFF; }
 
-    #overlay-controls {
+    #overlay-controls, #overlay-url-bar {
       position: fixed; top: 0; left: 0; right: 0;
-      padding-top: env(safe-area-inset-top, 0px);
       display: none;
       align-items: center; justify-content: center; gap: 10px;
-      z-index: 35; padding-bottom: 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
-      background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+      z-index: 35; padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 10px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent);
+      pointer-events: none; /* 자식 개별 요소만 all로 열어줌 */
     }
-    #overlay-controls.show { display: flex; }
-    #overlay-opacity { width: 110px; accent-color: #fff; }
-    #overlay-interact-btn, #overlay-close-btn {
+    #overlay-controls.show, #overlay-url-bar.show { display: flex; }
+    #overlay-controls > *, #overlay-url-bar > * { pointer-events: all; }
+
+    #overlay-url-input {
+      flex: 1; max-width: 260px;
+      background: rgba(255,255,255,0.12);
+      border: none; border-radius: 100px;
+      color: #fff; font-size: 14px;
+      padding: 9px 14px; outline: none;
+      -webkit-user-select: text; user-select: text;
+    }
+    #overlay-url-input::placeholder { color: rgba(255,255,255,0.4); }
+    #overlay-url-go, #overlay-url-cancel, #overlay-interact-btn, #overlay-close-btn {
       background: rgba(255,255,255,0.15); color: #fff; border: none;
-      border-radius: 100px; padding: 7px 16px; font-size: 13px; font-weight: 600;
-      cursor: pointer; letter-spacing: -0.1px; white-space: nowrap;
+      border-radius: 100px; padding: 8px 16px; font-size: 13px; font-weight: 600;
+      cursor: pointer; letter-spacing: -0.1px; white-space: nowrap; flex-shrink: 0;
     }
+    #overlay-url-go { background: #007AFF; }
     #overlay-interact-btn.active { background: #007AFF; }
-    #overlay-close-btn { background: rgba(255,59,48,0.3); color: #FF453A; }
+    #overlay-close-btn, #overlay-url-cancel { background: rgba(255,59,48,0.3); color: #FF453A; }
+
+    /* ── 커스텀 투명도 슬라이더 (네이티브 range 대신 직접 터치 처리) ── */
+    #overlay-opacity-slider {
+      width: 110px; height: 32px;
+      display: flex; align-items: center;
+      touch-action: none; /* 드래그를 JS로 직접 처리하므로 명시 */
+    }
+    #overlay-opacity-track {
+      position: relative; width: 100%; height: 4px;
+      background: rgba(255,255,255,0.25); border-radius: 4px;
+    }
+    #overlay-opacity-fill {
+      position: absolute; top: 0; left: 0; height: 100%;
+      background: #fff; border-radius: 4px; width: 50%;
+      pointer-events: none;
+    }
+    #overlay-opacity-thumb {
+      position: absolute; top: 50%; left: 50%;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,0.45);
+      transform: translate(-50%, -50%);
+    }
 
     /* ── 촬영 피드백 (화면 중앙, 아주 잠깐) ── */
     #capture-flash {
@@ -489,8 +522,19 @@
       </svg>
     </button>
   </div>
+  <div id="overlay-url-bar">
+    <input type="text" id="overlay-url-input" inputmode="url" placeholder="https://example.com"
+      autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button id="overlay-url-go">열기</button>
+    <button id="overlay-url-cancel">취소</button>
+  </div>
   <div id="overlay-controls">
-    <input type="range" id="overlay-opacity" min="10" max="90" value="50">
+    <div id="overlay-opacity-slider">
+      <div id="overlay-opacity-track">
+        <div id="overlay-opacity-fill"></div>
+        <div id="overlay-opacity-thumb"></div>
+      </div>
+    </div>
     <button id="overlay-interact-btn">편집</button>
     <button id="overlay-close-btn">종료</button>
   </div>
@@ -608,8 +652,15 @@
       zoomIndicator: document.getElementById('zoom-indicator'),
       overlayFrame: document.getElementById('overlay-frame'),
       overlayBtn: document.getElementById('overlay-btn'),
+      overlayUrlBar: document.getElementById('overlay-url-bar'),
+      overlayUrlInput: document.getElementById('overlay-url-input'),
+      overlayUrlGo: document.getElementById('overlay-url-go'),
+      overlayUrlCancel: document.getElementById('overlay-url-cancel'),
       overlayControls: document.getElementById('overlay-controls'),
-      overlayOpacity: document.getElementById('overlay-opacity'),
+      overlayOpacitySlider: document.getElementById('overlay-opacity-slider'),
+      overlayOpacityTrack: document.getElementById('overlay-opacity-track'),
+      overlayOpacityFill: document.getElementById('overlay-opacity-fill'),
+      overlayOpacityThumb: document.getElementById('overlay-opacity-thumb'),
       overlayInteractBtn: document.getElementById('overlay-interact-btn'),
       overlayCloseBtn: document.getElementById('overlay-close-btn'),
       captureFlash: document.getElementById('capture-flash')
@@ -632,7 +683,8 @@
       // Overlay (다른 웹페이지를 뷰파인더 위에 표시)
       overlay: {
         active: false,
-        interactive: false
+        interactive: false,
+        opacityPct: 50 // 10~90
       },
 
       // Camera Zoom Settings
@@ -923,10 +975,17 @@
     }
 
     // ── Overlay (다른 웹페이지를 뷰파인더 위에 반투명하게 표시) ──
+    function updateOpacitySliderUI(pct) {
+      DOM.overlayOpacityFill.style.width = pct + '%';
+      DOM.overlayOpacityThumb.style.left = pct + '%';
+      DOM.overlayFrame.style.opacity = pct / 100;
+    }
+
     function openOverlay(url) {
       DOM.overlayFrame.src = url;
       DOM.overlayFrame.hidden = false;
-      DOM.overlayFrame.style.opacity = DOM.overlayOpacity.value / 100;
+      updateOpacitySliderUI(state.overlay.opacityPct);
+      DOM.overlayUrlBar.classList.remove('show');
       DOM.overlayControls.classList.add('show');
       DOM.overlayBtn.classList.add('active');
       state.overlay.active = true;
@@ -936,6 +995,7 @@
       DOM.overlayFrame.hidden = true;
       DOM.overlayFrame.src = 'about:blank';
       DOM.overlayFrame.classList.remove('interactive');
+      DOM.overlayUrlBar.classList.remove('show');
       DOM.overlayControls.classList.remove('show');
       DOM.overlayBtn.classList.remove('active');
       DOM.overlayInteractBtn.classList.remove('active');
@@ -943,24 +1003,72 @@
       state.overlay.interactive = false;
     }
 
+    // 오버레이 버튼: 활성 중이면 닫기, 아니면 URL 입력창 열기 (native prompt는 사용 안 함 —
+    // 모달이 메인 스레드를 막아 영상이 멈춰 보이는 문제가 있었음)
     DOM.overlayBtn.addEventListener('click', () => {
       if (state.overlay.active) {
         closeOverlay();
         return;
       }
-      const url = window.prompt('오버레이할 웹페이지 주소를 입력하세요 (https://...)');
-      if (!url) return;
+      DOM.overlayUrlInput.value = '';
+      DOM.overlayUrlBar.classList.add('show');
+      DOM.overlayUrlInput.focus();
+    });
+
+    function tryOpenOverlayFromInput() {
+      let raw = DOM.overlayUrlInput.value.trim();
+      if (!raw) return;
+      if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
       try {
-        const parsed = new URL(url);
-        if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('invalid');
+        const parsed = new URL(raw);
         openOverlay(parsed.href);
+        DOM.overlayUrlInput.blur();
       } catch (_) {
         showToast('올바른 웹페이지 주소가 아니에요');
       }
+    }
+
+    DOM.overlayUrlGo.addEventListener('click', tryOpenOverlayFromInput);
+    DOM.overlayUrlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') tryOpenOverlayFromInput();
+    });
+    DOM.overlayUrlCancel.addEventListener('click', () => {
+      DOM.overlayUrlBar.classList.remove('show');
+      DOM.overlayUrlInput.blur();
     });
 
-    DOM.overlayOpacity.addEventListener('input', () => {
-      DOM.overlayFrame.style.opacity = DOM.overlayOpacity.value / 100;
+    // 커스텀 투명도 슬라이더 — html/body의 touch-action:none 때문에
+    // 네이티브 <input type="range">는 모바일에서 드래그가 먹히지 않아
+    // 터치 이벤트를 직접 처리 (다른 제스처들과 동일한 방식)
+    function setOpacityFromClientX(clientX) {
+      const rect = DOM.overlayOpacityTrack.getBoundingClientRect();
+      let ratio = (clientX - rect.left) / rect.width;
+      ratio = Math.max(0, Math.min(1, ratio));
+      const pct = Math.round(10 + ratio * 80); // 10~90 범위
+      state.overlay.opacityPct = pct;
+      updateOpacitySliderUI(pct);
+    }
+
+    DOM.overlayOpacitySlider.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      setOpacityFromClientX(e.touches[0].clientX);
+    }, { passive: false });
+
+    DOM.overlayOpacitySlider.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      setOpacityFromClientX(e.touches[0].clientX);
+    }, { passive: false });
+
+    // 데스크톱 마우스 드래그 지원 (테스트/개발 편의용)
+    DOM.overlayOpacitySlider.addEventListener('mousedown', (e) => {
+      setOpacityFromClientX(e.clientX);
+      const onMove = (ev) => setOpacityFromClientX(ev.clientX);
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
 
     DOM.overlayInteractBtn.addEventListener('click', () => {
