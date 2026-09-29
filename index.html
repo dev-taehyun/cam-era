@@ -35,6 +35,10 @@
       background: #000;
     }
 
+    #viewfinder.overlay-hidden {
+      visibility: hidden;
+    }
+
     #canvas { display: none; }
 
     /* ── Permission Screen ── */
@@ -200,7 +204,7 @@
       z-index: 100; display: none;
       touch-action: none;
     }
-    
+
     #viewer-header {
       position: absolute; top: 0; left: 0; right: 0;
       height: 72px;
@@ -212,7 +216,7 @@
     #viewer-header.ui-hidden {
       opacity: 0; pointer-events: none; transform: translateY(-10px);
     }
-    
+
     .header-inner {
       position: relative;
       width: 100%; height: 100%;
@@ -220,7 +224,7 @@
       align-items: flex-end;
       padding-bottom: 12px;
     }
-    
+
     .viewer-btn {
       width: 36px; height: 36px;
       background: rgba(0,0,0,0.4);
@@ -230,7 +234,7 @@
       transition: opacity 0.15s;
     }
     .viewer-btn:active { opacity: 0.6; }
-    
+
     #viewer-left-controls {
       position: absolute; left: 20px; bottom: 12px;
       display: flex;
@@ -238,7 +242,7 @@
       gap: 10px;
       z-index: 112;
     }
-    
+
     .header-title-center {
       position: absolute;
       left: 50%; bottom: 18px; 
@@ -251,7 +255,7 @@
       white-space: nowrap;
       line-height: 1;
     }
-    
+
     #viewer-right-controls {
       position: absolute; right: 20px; bottom: 12px;
       display: flex;
@@ -318,7 +322,7 @@
       pointer-events: none;
       transition: transform 0.2s ease;
     }
-    
+
     .grid-item .select-overlay {
       position: absolute; inset: 0;
       background: rgba(0, 0, 0, 0.35);
@@ -429,25 +433,6 @@
     #overlay-btn:active { background: rgba(255,255,255,0.22); }
     #overlay-btn.active { background: #007AFF; }
 
-    /* ── 오버레이 활성 중 편집/종료 — 기존 유지 ── */
-    #overlay-controls {
-      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); right: 10px;
-      display: none; flex-direction: column; align-items: center; gap: 6px;
-      z-index: 35;
-    }
-    #overlay-controls.show { display: flex; }
-    #overlay-interact-btn, #overlay-close-btn {
-      width: 30px; height: 30px; border-radius: 50%;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-      border: none; cursor: pointer; opacity: 0.55;
-      display: flex; align-items: center; justify-content: center;
-      transition: opacity 0.15s, background 0.15s;
-    }
-    #overlay-interact-btn:active, #overlay-close-btn:active { opacity: 0.9; }
-    #overlay-interact-btn.active { background: #007AFF; opacity: 0.85; }
-    #overlay-close-btn { background: rgba(255,59,48,0.25); }
-
     /* ── 오버레이 촬영 영역 ── */
     #overlay-shutter-zone {
       position: fixed;
@@ -506,18 +491,7 @@
       </svg>
     </button>
   </div>
-  <div id="overlay-controls">
-    <button id="overlay-interact-btn" aria-label="편집 모드 전환">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-      </svg>
-    </button>
-    <button id="overlay-close-btn" aria-label="오버레이 종료">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2.5" stroke-linecap="round">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
-  </div>
+
   <div id="zoom-indicator">1.0×</div>
 
   <div id="bottom-bar">
@@ -560,9 +534,9 @@
             </svg>
           </button>
         </div>
-        
+
         <div id="viewer-counter" class="header-title-center">모든 사진</div>
-        
+
         <div id="viewer-right-controls">
           <button id="viewer-select-toggle">선택</button>
           <button class="viewer-btn" id="viewer-delete" aria-label="삭제" style="background: rgba(255, 59, 48, 0.35);">
@@ -581,9 +555,9 @@
         </div>
       </div>
     </div>
-    
+
     <div id="gallery-grid-layer"></div>
-    
+
     <div id="gallery-bulk-toolbar">
       <button class="bulk-btn" id="bulk-download">선택 다운로드</button>
       <button class="bulk-btn" id="bulk-delete">선택 삭제</button>
@@ -632,9 +606,6 @@
       zoomIndicator: document.getElementById('zoom-indicator'),
       overlayFrame: document.getElementById('overlay-frame'),
       overlayBtn: document.getElementById('overlay-btn'),
-      overlayControls: document.getElementById('overlay-controls'),
-      overlayInteractBtn: document.getElementById('overlay-interact-btn'),
-      overlayCloseBtn: document.getElementById('overlay-close-btn'),
       overlayShutterZone: document.getElementById('overlay-shutter-zone'),
       captureFlash: document.getElementById('capture-flash')
     };
@@ -755,7 +726,7 @@
         const store = transaction.objectStore(STORE_NAME);
         const item = { blob: blob, timestamp: Date.now() };
         let request;
-        
+
         try {
           request = store.add(item);
         } catch (err) {
@@ -789,7 +760,7 @@
 
     // ── Utility Functions ──
     const pad = (n) => String(n).padStart(2, '0');
-    
+
     const getTimestamp = () => {
       const d = new Date();
       return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}_${String(d.getMilliseconds()).padStart(3, '0')}`;
@@ -837,9 +808,9 @@
         }); 
         state.currentStream = null; 
       }
-      
+
       state.facingMode = facing;
-      
+
       const constraintsQueue = [
         { facingMode: facing, width: { ideal: 4096 }, height: { ideal: 2160 }, frameRate: { ideal: 30 } },
         { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -863,7 +834,7 @@
         DOM.viewfinder.srcObject = stream;
         state.zoom.track = stream.getVideoTracks()[0];
         initZoom();
-        
+
         DOM.permScreen.style.display = 'none';
         DOM.topBar.style.display     = 'flex';
         DOM.bottomBar.style.display  = 'flex';
@@ -883,7 +854,7 @@
     function checkAndResumeCamera() {
       if (DOM.galleryViewer.style.display === 'block') return;
       if (DOM.permScreen.style.display !== 'none') return;
-      
+
       const track = state.currentStream?.getVideoTracks()[0];
       if (!track || track.readyState === 'ended' || DOM.viewfinder.paused) {
         startCamera(state.facingMode, false);
@@ -896,9 +867,9 @@
       state.zoom.current = 1.0; 
       state.zoom.min = 1.0; 
       state.zoom.max = 1.0;
-      
+
       if (!state.zoom.track?.getCapabilities) return;
-      
+
       const caps = state.zoom.track.getCapabilities();
       if (caps.zoom?.min != null && caps.zoom?.max != null) {
         state.zoom.min = caps.zoom.min;
@@ -918,11 +889,11 @@
 
     document.addEventListener('touchmove', e => {
       if (!state.cameraGesture.isPinchActive || e.touches.length !== 2) return;
-      
+
       const dist    = getTouchDist(e.touches);
       const ratio   = dist / state.cameraGesture.startDist;
       const newZoom = Math.max(state.zoom.min, Math.min(state.zoom.max, state.cameraGesture.startZoom * ratio));
-      
+
       if (Math.abs(newZoom - state.zoom.current) >= 0.05) {
         state.zoom.current = newZoom;
         applyZoom(newZoom);
@@ -956,8 +927,8 @@
     function openOverlay(url) {
       DOM.overlayFrame.src = url;
       DOM.overlayFrame.hidden = false;
+      DOM.viewfinder.classList.add('overlay-hidden');
       applyOverlayOpacity();
-      DOM.overlayControls.classList.add('show');
       DOM.overlayBtn.classList.add('active');
       DOM.topBar.style.display = 'none';
       DOM.bottomBar.style.display = 'none';
@@ -981,14 +952,16 @@
       DOM.overlayFrame.hidden = true;
       DOM.overlayFrame.src = 'about:blank';
       DOM.overlayFrame.classList.remove('interactive');
-      DOM.overlayControls.classList.remove('show');
+      DOM.viewfinder.classList.remove('overlay-hidden');
       DOM.overlayBtn.classList.remove('active');
-      DOM.overlayInteractBtn.classList.remove('active');
       DOM.overlayShutterZone.classList.remove('show');
-      DOM.topBar.style.display = 'flex';
-      DOM.bottomBar.style.display = 'flex';
       state.overlay.active = false;
       state.overlay.interactive = false;
+
+      if (DOM.permScreen.style.display === 'none') {
+        DOM.topBar.style.display = 'flex';
+        DOM.bottomBar.style.display = 'flex';
+      }
     }
 
     // 기본 오버레이 대상 — 버튼 누르면 이 주소가 바로 열림
@@ -1013,14 +986,6 @@
       openOverlay(resolveOverlayUrl(DEFAULT_OVERLAY_URL));
     });
 
-    DOM.overlayInteractBtn.addEventListener('click', () => {
-      const on = DOM.overlayFrame.classList.toggle('interactive');
-      DOM.overlayInteractBtn.classList.toggle('active', on);
-      state.overlay.interactive = on;
-    });
-
-    DOM.overlayCloseBtn.addEventListener('click', closeOverlay);
-
     DOM.overlayShutterZone.addEventListener('pointerup', e => {
       e.preventDefault();
       e.stopPropagation();
@@ -1043,18 +1008,18 @@
       const vw = DOM.viewfinder.videoWidth;
       const vh = DOM.viewfinder.videoHeight;
       if (!vw || !vh) return;
-      
+
       DOM.canvas.width = vw; 
       DOM.canvas.height = vh;
-      
+
       const ctx = DOM.canvas.getContext('2d');
       if (state.facingMode === 'user') { 
         ctx.translate(vw, 0); 
         ctx.scale(-1, 1); 
       }
-      
+
       ctx.drawImage(DOM.viewfinder, 0, 0, vw, vh);
-      
+
       DOM.canvas.toBlob(async (blob) => {
         if (!blob) return;
 
@@ -1070,10 +1035,10 @@
           state.photosArray.push(photoObject);
           showToast('⚠️ 저장 공간 부족으로 임시 상태로만 유지됩니다.', 3000);
         }
-        
+
         DOM.thumbnailImg.src = photoObject.objectUrl;
         DOM.thumbnailImg.style.display = 'block';
-        
+
         if (DOM.saveCheckbox.checked) {
           saveImage(photoObject, false);
         }
@@ -1088,14 +1053,14 @@
 
       const a = document.createElement('a');
       a.href = photoItem.objectUrl; 
-      
+
       const uniqueSuffix = (typeof photoItem.id === 'number') ? photoItem.id : Math.floor(Math.random() * 1000);
       a.download = `photo_${getTimestamp()}_${uniqueSuffix}.jpg`;
-      
+
       document.body.appendChild(a); 
       a.click(); 
       document.body.removeChild(a);
-      
+
       if (toastObj) showToast('저장되었습니다');
       setTimeout(checkAndResumeCamera, 300);
     }
@@ -1119,7 +1084,7 @@
       DOM.galleryViewer.style.display = 'block';
       DOM.galleryGridLayer.style.display = 'grid';
       DOM.galleryDetailLayer.style.display = 'none';
-      
+
       DOM.viewerCounter.textContent = '모든 사진';
       DOM.viewerGrid.style.display = 'none'; 
       DOM.viewerSelectToggle.style.display = 'block'; 
@@ -1131,7 +1096,7 @@
 
     function renderGridItems() {
       DOM.galleryGridLayer.innerHTML = '';
-      
+
       for (let i = state.photosArray.length - 1; i >= 0; i--) {
         const item = state.photosArray[i];
         const gridItem = document.createElement('div');
@@ -1140,11 +1105,11 @@
         if (state.isSelectMode && state.selectedPhotoIds.has(item.id)) {
           gridItem.classList.add('selected');
         }
-        
+
         const img = document.createElement('img');
         img.src = item.objectUrl;
         img.loading = 'lazy';
-        
+
         const overlay = document.createElement('div');
         overlay.className = 'select-overlay';
         const badge = document.createElement('div');
@@ -1155,11 +1120,11 @@
           </svg>
         `;
         overlay.appendChild(badge);
-        
+
         gridItem.appendChild(img);
         gridItem.appendChild(overlay);
         DOM.galleryGridLayer.appendChild(gridItem);
-        
+
         gridItem.addEventListener('click', () => {
           if (state.isSelectMode) {
             toggleSelectPhoto(item.id, gridItem);
@@ -1180,7 +1145,7 @@
       if (!state.isSelectMode) return;
       state.isDraggingSelect = false;
       state.draggedPhotoIds.clear();
-      
+
       const item = getGridItemFromCoords(e.clientX, e.clientY);
       if (item) {
         const id = item.getAttribute('data-id');
@@ -1192,7 +1157,7 @@
     DOM.galleryGridLayer.addEventListener('mousemove', (e) => {
       if (!state.isSelectMode) return;
       if (e.buttons !== 1) return; 
-      
+
       state.isDraggingSelect = true;
       const item = getGridItemFromCoords(e.clientX, e.clientY);
       if (item) {
@@ -1215,7 +1180,7 @@
       if (!state.isSelectMode) return;
       state.isDraggingSelect = false;
       state.draggedPhotoIds.clear();
-      
+
       const touch = e.touches[0];
       const item = getGridItemFromCoords(touch.clientX, touch.clientY);
       if (item) {
@@ -1227,7 +1192,7 @@
 
     DOM.galleryGridLayer.addEventListener('touchmove', (e) => {
       if (!state.isSelectMode) return;
-      
+
       state.isDraggingSelect = true;
       const touch = e.touches[0];
       const item = getGridItemFromCoords(touch.clientX, touch.clientY);
@@ -1309,9 +1274,9 @@
     // ── 다중 일괄 실행 액션 로직 ──
     DOM.bulkDownload.addEventListener('click', () => {
       if (state.selectedPhotoIds.size === 0) return;
-      
+
       let targetItems = state.photosArray.filter(p => state.selectedPhotoIds.has(p.id));
-      
+
       targetItems.forEach((item, idx) => {
         setTimeout(() => {
           saveImage(item, false);
@@ -1325,10 +1290,10 @@
 
     DOM.bulkDelete.addEventListener('click', async () => {
       if (state.selectedPhotoIds.size === 0) return;
-      
+
       const targetIds = new Set(state.selectedPhotoIds);
       const deletePromises = [];
-      
+
       state.photosArray.forEach(item => {
         if (targetIds.has(item.id)) {
           if (typeof item.id === 'number') {
@@ -1339,10 +1304,10 @@
           }
         }
       });
-      
+
       await Promise.all(deletePromises);
       state.photosArray = state.photosArray.filter(p => !targetIds.has(p.id));
-      
+
       if (state.photosArray.length === 0) {
         DOM.thumbnailImg.src = '';
         DOM.thumbnailImg.style.display = 'none';
@@ -1360,10 +1325,10 @@
     function openGalleryDetailView(index) {
       state.galleryViewMode = 'detail';
       state.currentSlideIndex = index;
-      
+
       DOM.galleryGridLayer.style.display = 'none';
       DOM.galleryDetailLayer.style.display = 'block';
-      
+
       DOM.viewerGrid.style.display = 'flex'; 
       DOM.viewerSelectToggle.style.display = 'none'; 
       DOM.viewerDelete.style.display = 'flex'; 
@@ -1382,7 +1347,7 @@
         slide.appendChild(img); 
         DOM.swipeContainer.appendChild(slide);
       });
-      
+
       if (state.currentSlideIndex >= state.photosArray.length) {
         state.currentSlideIndex = state.photosArray.length - 1;
       }
@@ -1443,10 +1408,10 @@
         if (state.currentSlideIndex >= state.photosArray.length) {
           state.currentSlideIndex = state.photosArray.length - 1;
         }
-        
+
         const latestPhoto = state.photosArray[state.photosArray.length - 1];
         DOM.thumbnailImg.src = latestPhoto.objectUrl;
-        
+
         renderGalleryItems();
         showToast('삭제되었습니다');
       }
@@ -1456,7 +1421,7 @@
       if (!state.photosArray.length) return;
       DOM.swipeContainer.style.transition = anim ? 'transform 0.3s cubic-bezier(0.16,1,0.3,1)' : 'none';
       DOM.swipeContainer.style.transform  = `translateX(${-state.currentSlideIndex * window.innerWidth}px)`;
-      
+
       DOM.viewerCounter.textContent = `${state.currentSlideIndex + 1} / ${state.photosArray.length}`;
     }
 
@@ -1490,7 +1455,7 @@
 
         g.pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
         g.pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        
+
         g.startPanX = g.panX;
         g.startPanY = g.panY;
       } else if (e.touches.length === 1) { 
@@ -1512,7 +1477,7 @@
         const dist = getTouchDist(e.touches);
         const ratio = dist / g.startDist;
         const nextZoom = Math.max(1.0, Math.min(4.0, g.startZoom * ratio));
-        
+
         if (nextZoom !== g.zoom) {
           const viewWidth = window.innerWidth;
           const viewHeight = window.innerHeight;
@@ -1543,7 +1508,7 @@
       }
 
       if (!g.isSwiveLive || e.touches.length !== 1) return;
-      
+
       if (g.zoom > 1.0) {
         let rawPanX = g.startPanX + (e.touches[0].clientX - g.swX);
         let rawPanY = g.startPanY + (e.touches[0].clientY - g.swY);
@@ -1574,20 +1539,20 @@
 
       if (!g.isSwiveLive) return; 
       g.isSwiveLive = false;
-      
+
       const dx = e.changedTouches[0].clientX - g.swX;
       const dy = e.changedTouches[0].clientY - g.swY;
       const dt = Date.now() - g.swT;
       const speed = Math.abs(dx) / Math.max(dt, 1);
       const viewWidth = window.innerWidth;
-      
+
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5 && dt < 250) {
         DOM.viewerHeader.classList.toggle('ui-hidden');
         return;
       }
 
       if (g.zoom > 1.0) return;
-      
+
       if ((dx < -viewWidth * 0.3 || (dx < -20 && speed > 0.5)) && state.currentSlideIndex < state.photosArray.length - 1) {
         state.currentSlideIndex++;
         resetSlideZoom();
@@ -1641,7 +1606,7 @@
     async function initApp() {
       try {
         await initDB();
-        
+
         const savedPhotos = await loadPhotosFromDB();
         if (savedPhotos && savedPhotos.length > 0) {
           state.photosArray = savedPhotos;
